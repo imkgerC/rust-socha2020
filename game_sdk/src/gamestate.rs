@@ -61,7 +61,9 @@ impl GameState {
                     occupied[self.color_to_move as usize] |= 1 << to;
                 } else {
                     let from_bit = 1 << from;
-                    if (beetle_stack[0][RED as usize] | beetle_stack[0][BLUE as usize]) & from_bit > 0 {
+                    if (beetle_stack[0][RED as usize] | beetle_stack[0][BLUE as usize]) & from_bit
+                        > 0
+                    {
                         let mut index = 3;
                         while index > 0 {
                             if beetle_stack[index][self.color_to_move as usize] & from_bit > 0 {
