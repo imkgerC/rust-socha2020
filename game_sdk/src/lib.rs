@@ -8,6 +8,7 @@ mod hashing;
 mod piece_type;
 
 pub use gamestate::GameState;
+pub use hashing::HashKeys;
 #[cfg(test)]
 mod tests {
     #[test]

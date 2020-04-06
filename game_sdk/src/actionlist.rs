@@ -1,7 +1,7 @@
 use crate::action::Action;
 use std::ops::{Index, IndexMut};
 
-pub const MAX_ACTIONS: usize = 440;
+pub const MAX_ACTIONS: usize = 455; //TODO OBSTACLES
 
 #[derive(Clone)]
 pub struct ActionList {
