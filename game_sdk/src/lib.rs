@@ -5,6 +5,7 @@ pub mod gamerules;
 mod gamestate;
 mod piece_type;
 
+pub use gamestate::GameState;
 #[cfg(test)]
 mod tests {
     #[test]
