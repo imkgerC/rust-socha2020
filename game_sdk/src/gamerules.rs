@@ -405,25 +405,31 @@ pub fn is_game_finished(game_state: &GameState) -> bool {
         return false;
     }
 
-    let bee_neighbours =
-        bitboard::get_neighbours(game_state.pieces[PieceType::BEE as usize][Color::RED as usize]);
-    if (bee_neighbours
-        & (game_state.occupied[Color::BLUE as usize]
-            | game_state.occupied[Color::RED as usize]
-            | game_state.obstacles))
-        == bee_neighbours
-    {
-        return true;
+    if game_state.pieces[PieceType::BEE as usize][Color::RED as usize] != 0 {
+        let bee_neighbours = bitboard::get_neighbours(
+            game_state.pieces[PieceType::BEE as usize][Color::RED as usize],
+        );
+        if (bee_neighbours
+            & (game_state.occupied[Color::BLUE as usize]
+                | game_state.occupied[Color::RED as usize]
+                | game_state.obstacles))
+            == bee_neighbours
+        {
+            return true;
+        }
     }
-    let bee_neighbours =
-        bitboard::get_neighbours(game_state.pieces[PieceType::BEE as usize][Color::BLUE as usize]);
-    if (bee_neighbours
-        & (game_state.occupied[Color::BLUE as usize]
-            | game_state.occupied[Color::RED as usize]
-            | game_state.obstacles))
-        == bee_neighbours
-    {
-        return true;
+    if game_state.pieces[PieceType::BEE as usize][Color::BLUE as usize] != 0 {
+        let bee_neighbours = bitboard::get_neighbours(
+            game_state.pieces[PieceType::BEE as usize][Color::BLUE as usize],
+        );
+        if (bee_neighbours
+            & (game_state.occupied[Color::BLUE as usize]
+                | game_state.occupied[Color::RED as usize]
+                | game_state.obstacles))
+            == bee_neighbours
+        {
+            return true;
+        }
     }
 
     return false;
