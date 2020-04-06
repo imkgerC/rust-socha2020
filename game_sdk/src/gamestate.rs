@@ -1,4 +1,6 @@
 use crate::action::Action;
+use crate::actionlist::{ActionList, ActionListStack};
+use crate::gamerules::calculate_legal_moves;
 use crate::gamestate::Color::{BLUE, RED};
 use crate::piece_type::PieceType;
 
@@ -9,6 +11,7 @@ pub enum Color {
     BLUE = 1,
 }
 impl Color {
+    #[inline(always)]
     pub fn swap(self) -> Color {
         match self {
             RED => BLUE,
@@ -100,6 +103,43 @@ impl GameState {
         }
     }
 
+    pub fn perft_div(&self, depth: usize) -> u64 {
+        self.iperft_root(depth, true)
+    }
+
+    pub fn perft(&self, depth: usize) -> u64 {
+        self.iperft_root(depth, false)
+    }
+
+    fn iperft_root(&self, depth: usize, print: bool) -> u64 {
+        if depth == 0 {
+            return 1;
+        } else {
+            let mut als = ActionListStack::with_size(depth + 1);
+            calculate_legal_moves(self, als[depth]);
+            let mut nc = 0u64;
+            for action in als[depth].iter() {
+                let next_state = self.make_action(action);
+                let n = next_state.iperft(depth - 1, &mut als);
+                if print {
+                    println!("{:?}: {}", action, n);
+                }
+                nc += n;
+            }
+            nc
+        }
+    }
+
+    fn iperft(&self, depth: usize, als: &mut ActionListStack) -> u64 {
+        calculate_legal_moves(self, als[depth]);
+        let mut nc = 0u64;
+        for action in als[depth].iter() {
+            let next_state = self.make_action(action);
+            nc += next_state.iperft(depth - 1, als);
+        }
+        nc
+    }
+
     pub fn must_player_place_bee(&self) -> bool {
         let round = self.ply / 2;
         if round == 3 {
@@ -112,13 +152,5 @@ impl GameState {
 
     pub fn has_player_placed_bee(&self) -> bool {
         return self.pieces[PieceType::BEE as usize][self.color_to_move as usize] > 0;
-    }
-
-    pub fn perft_div(&self, depth: usize) -> u64 {
-        0
-    }
-
-    pub fn perft(&self, depth: usize) -> u64 {
-        0
     }
 }
