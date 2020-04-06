@@ -1,5 +1,5 @@
 use crate::action::Action;
-use crate::actionlist::{ActionList, ActionListStack};
+use crate::actionlist::ActionListStack;
 use crate::gamerules::calculate_legal_moves;
 use crate::gamestate::Color::{BLUE, RED};
 use crate::piece_type::PieceType;
@@ -11,7 +11,6 @@ pub enum Color {
     BLUE = 1,
 }
 impl Color {
-  
     #[inline(always)]
     pub fn swap(self) -> Color {
         match self {
@@ -42,7 +41,7 @@ impl GameState {
         }
     }
 
-    pub fn make_action(&self, action: &Action) -> GameState {
+    pub fn make_action(&self, action: Action) -> GameState {
         GameState {
             ply: self.ply + 1,
             color_to_move: self.color_to_move.swap(),
@@ -65,9 +64,10 @@ impl GameState {
             return 1;
         } else {
             let mut als = ActionListStack::with_size(depth + 1);
-            calculate_legal_moves(self, als[depth]);
+            calculate_legal_moves(self, &mut als[depth]);
             let mut nc = 0u64;
-            for action in als[depth].iter() {
+            for i in 0..als[depth].size {
+                let action = als[depth][i];
                 let next_state = self.make_action(action);
                 let n = next_state.iperft(depth - 1, &mut als);
                 if print {
@@ -80,15 +80,19 @@ impl GameState {
     }
 
     fn iperft(&self, depth: usize, als: &mut ActionListStack) -> u64 {
-        calculate_legal_moves(self, als[depth]);
-        let mut nc = 0u64;
-        for action in als[depth].iter() {
-            let next_state = self.make_action(action);
-            nc += next_state.iperft(depth - 1, als);
+        if depth == 0 {
+            return 1;
+        } else {
+            calculate_legal_moves(self, &mut als[depth]);
+            let mut nc = 0u64;
+            for i in 0..als[depth].size {
+                let next_state = self.make_action(als[depth][i]);
+                nc += next_state.iperft(depth - 1, als);
+            }
+            nc
         }
-        nc
     }
-  
+
     pub fn must_player_place_bee(&self) -> bool {
         let round = self.ply / 2;
         if round == 3 {

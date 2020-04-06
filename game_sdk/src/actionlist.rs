@@ -6,55 +6,34 @@ pub const MAX_ACTIONS: usize = 440;
 #[derive(Clone)]
 pub struct ActionList {
     actions: [Action; MAX_ACTIONS],
-    size: usize,
+    pub size: usize,
 }
 
 impl ActionList {
-    #[inline(always)]
-    pub fn get_action(&self, index: usize) -> &Action {
-        //TODO Decide: Action Copy or not? Move or not?
-        if index < self.size {
-            self.actions
-                .get(index)
-                .expect("ActionList size exceeded MAX_ACTIONS.")
-        } else {
-            panic!(&format!(
-                "Index out of bounds for ActionList, given index: {}, size: {}, actions: {:?}",
-                index, self.size, self.actions
-            ))
-        }
-    }
-    pub fn iter(&self) -> ActionListIter {
-        ActionListIter {
-            action_list: self,
-            curr_index: 0,
-        }
-    }
-
     #[inline(always)]
     pub fn has_action(&self, index: usize) -> bool {
         index < self.size
     }
 }
+impl Index<usize> for ActionList {
+    type Output = Action;
 
-struct ActionListIter<'a> {
-    action_list: &'a ActionList,
-    curr_index: usize,
-}
-impl Iterator for ActionListIter {
-    type Item = Action;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.action_list.has_action(self.curr_index) {
-            let res = self.action_list.get_action(self.curr_index);
-            self.curr_index += 1;
-            Some(*res)
+    #[inline(always)]
+    fn index(&self, index: usize) -> &Self::Output {
+        if index < self.size {
+            self.actions
+                .get(index)
+                .expect("ActionList size exceeded MAX_ACTIONS.")
         } else {
-            None
+            panic!(
+                "Index out of bounds for ActionList, given index: {}, size: {}, actions: {:?}",
+                index,
+                self.size,
+                self.actions.to_vec()
+            );
         }
     }
 }
-
 impl Default for ActionList {
     fn default() -> Self {
         let actions = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
@@ -63,7 +42,7 @@ impl Default for ActionList {
 }
 
 pub struct ActionListStack {
-    action_lists: Vec<ActionList>,
+    pub action_lists: Vec<ActionList>,
 }
 impl ActionListStack {
     pub fn with_size(size: usize) -> Self {
@@ -72,12 +51,26 @@ impl ActionListStack {
         }
     }
 }
+impl Index<usize> for ActionListStack {
+    type Output = ActionList;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        if index < self.action_lists.len() {
+            &self.action_lists[index]
+        } else {
+            panic!("Can not extend ActionListStack in non mutable index");
+        }
+    }
+}
+
 impl IndexMut<usize> for ActionListStack {
     fn index_mut(&mut self, index: usize) -> &mut ActionList {
         if index < self.action_lists.len() {
             &mut self.action_lists[index]
         } else {
-            unimplemented!("");
+            self.action_lists
+                .append(vec![ActionList::default(); index + 1 - self.action_lists.len()].as_mut());
+            self.index_mut(index)
         }
     }
 }
