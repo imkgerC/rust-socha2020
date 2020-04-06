@@ -14,6 +14,11 @@ impl ActionList {
     pub fn has_action(&self, index: usize) -> bool {
         index < self.size
     }
+
+    pub fn push(&mut self, action: Action) {
+        self.actions[self.size] = action;
+        self.size += 1;
+    }
 }
 impl Index<usize> for ActionList {
     type Output = Action;
@@ -21,9 +26,7 @@ impl Index<usize> for ActionList {
     #[inline(always)]
     fn index(&self, index: usize) -> &Self::Output {
         if index < self.size {
-            self.actions
-                .get(index)
-                .expect("ActionList size exceeded MAX_ACTIONS.")
+            &self.actions[index]
         } else {
             panic!(
                 "Index out of bounds for ActionList, given index: {}, size: {}, actions: {:?}",
