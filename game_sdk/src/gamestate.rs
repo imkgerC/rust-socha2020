@@ -1,11 +1,15 @@
 use crate::action::Action;
 use crate::actionlist::ActionListStack;
+use crate::bitboard::constants::VALID_FIELDS;
+use crate::fieldtype::FieldType;
 use crate::gamerules::{calculate_legal_moves, is_game_finished};
 use crate::gamestate::Color::{BLUE, RED};
-use crate::piece_type::PieceType;
+use crate::piece_type::{PieceType, VARIANTS};
+use colored::Colorize;
+use std::fmt::{Display, Formatter, Result};
 
 #[repr(u8)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Color {
     RED = 0,
     BLUE = 1,
@@ -43,6 +47,30 @@ impl GameState {
         }
     }
 
+    pub fn field_type(&self, index: usize) -> FieldType {
+        let field_bb = 1u128 << index;
+        debug_assert!(field_bb & VALID_FIELDS != 0);
+        if field_bb & self.obstacles != 0u128 {
+            FieldType::BLOCKED
+        } else {
+            for piece_type in VARIANTS.iter() {
+                if field_bb
+                    & (self.pieces[*piece_type as usize][RED as usize]
+                        | self.pieces[*piece_type as usize][BLUE as usize])
+                    != 0
+                {
+                    return FieldType::USED(*piece_type);
+                }
+            }
+            FieldType::FREE
+        }
+    }
+    pub fn is_on_stack(&self, index: usize) -> bool {
+        self.is_on_colored_stack(index, Color::RED) || self.is_on_colored_stack(index, Color::BLUE)
+    }
+    pub fn is_on_colored_stack(&self, index: usize, color: Color) -> bool {
+        (1u128 << index) & self.beetle_stack[0][color as usize] != 0
+    }
     pub fn make_action(&self, action: Action) -> GameState {
         let mut pieces = self.pieces.clone();
         let mut occupied = self.occupied.clone();
@@ -196,5 +224,60 @@ impl GameState {
 
     pub fn has_player_placed_bee(&self) -> bool {
         return self.pieces[PieceType::BEE as usize][self.color_to_move as usize] > 0;
+    }
+}
+impl Display for GameState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let mut res_str = String::new();
+        for _ in 0..45 {
+            res_str.push_str("-");
+        }
+        res_str.push_str("\n");
+        for y in 0..11isize {
+            let y = 10 - y;
+            res_str.push_str("|");
+            //Fields per row:
+            let fields = 11 - (y - 5).abs();
+            let extra_spaces = 2 * (11 - fields) - if y != 5 { 1 } else { 0 };
+            for _ in 0..extra_spaces {
+                res_str.push_str(" ");
+            }
+            let start_x = (y - 5).max(0);
+            if y != 5 {
+                res_str.push_str("|")
+            }
+            for x in start_x..start_x + fields {
+                let index = (11 * y + x) as usize;
+                //Piecetype
+                let field_type = self.field_type(index);
+                if let FieldType::USED(pt) = field_type {
+                    //Get color of piece type
+                    if self.pieces[pt as usize][RED as usize] & (1u128 << index) != 0 {
+                        res_str.push_str(&format!(" {} ", field_type.to_string().color("red")));
+                    } else {
+                        res_str.push_str(&format!(" {} ", field_type.to_string().color("blue")));
+                    }
+                } else {
+                    res_str.push_str(&format!(" {} ", field_type.to_string()));
+                }
+                if y != 5 || x < 10 {
+                    res_str.push_str("|");
+                } else {
+                }
+            }
+            for _ in 0..extra_spaces {
+                res_str.push_str(" ")
+            }
+            res_str.push_str("|\n");
+        }
+        for _ in 0..45 {
+            res_str.push_str("-");
+        }
+        res_str.push_str("\n");
+        res_str.push_str(&format!(
+            "Ply: {}\nColor to move: {:?}",
+            self.ply, self.color_to_move
+        ));
+        write!(f, "{}", res_str)
     }
 }
