@@ -7,7 +7,7 @@ use crate::piece_type::PieceType;
 
 pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
     if game_state.ply == 0 {
-        let mut valid_fields = bitboard::constants::VALID_FIELDS;
+        let mut valid_fields = bitboard::constants::VALID_FIELDS & !game_state.obstacles;
         while valid_fields > 1 {
             let to = valid_fields.trailing_zeros();
             valid_fields ^= 1 << to;
