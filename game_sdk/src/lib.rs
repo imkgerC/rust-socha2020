@@ -12,6 +12,7 @@ pub use action::Action;
 pub use gamestate::GameState;
 pub use hashing::HashKeys;
 pub use piece_type::PieceType;
+
 #[cfg(test)]
 mod tests {
     #[test]
