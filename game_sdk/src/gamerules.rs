@@ -124,7 +124,7 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
             | game_state.occupied[Color::BLUE as usize])
             ^ from_bit;
         let neighbours = bitboard::get_neighbours(from_bit) & occupied;
-        if !are_connected_in_swarm(game_state, occupied, neighbours) {
+        if !are_connected_in_swarm(occupied, neighbours) {
             continue;
         }
         if from_bit & game_state.pieces[PieceType::BEE as usize][game_state.color_to_move as usize]
@@ -416,12 +416,7 @@ fn get_accessible_neighbours(occupied: u128, obstacles: u128, field: u128) -> u1
     return ret & free;
 }
 
-fn are_connected_in_swarm(game_state: &GameState, occupied: u128, to_check: u128) -> bool {
-    if to_check == 0 {
-        println!("{}", game_state);
-        println!("{}", occupied);
-        panic!("is not allowed by the rules");
-    }
+fn are_connected_in_swarm(occupied: u128, to_check: u128) -> bool {
     if to_check.count_ones() == 1 {
         return true;
     }
