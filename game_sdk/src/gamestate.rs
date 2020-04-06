@@ -2,6 +2,7 @@ use crate::action::Action;
 use crate::actionlist::{ActionList, ActionListStack};
 use crate::gamerules::calculate_legal_moves;
 use crate::gamestate::Color::{BLUE, RED};
+use crate::piece_type::PieceType;
 
 #[repr(u8)]
 #[derive(Copy, Clone)]
@@ -10,6 +11,7 @@ pub enum Color {
     BLUE = 1,
 }
 impl Color {
+  
     #[inline(always)]
     pub fn swap(self) -> Color {
         match self {
@@ -85,5 +87,19 @@ impl GameState {
             nc += next_state.iperft(depth - 1, als);
         }
         nc
+    }
+  
+    pub fn must_player_place_bee(&self) -> bool {
+        let round = self.ply / 2;
+        if round == 3 {
+            if !self.has_player_placed_bee() {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    pub fn has_player_placed_bee(&self) -> bool {
+        return self.pieces[PieceType::BEE as usize][self.color_to_move as usize] > 0;
     }
 }
