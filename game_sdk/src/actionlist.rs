@@ -5,5 +5,5 @@ pub struct ActionList{
     actions: [Action; MAX_ACTIONS]
 }
 impl ActionList{
-    
+    test
 }
