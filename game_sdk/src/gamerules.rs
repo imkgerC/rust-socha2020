@@ -328,10 +328,10 @@ fn get_beetle_accessible_neighbours(occupied: u128, obstacles: u128, field: u128
     if sowe_check & occupied > 0 {
         ret |= sowe;
     }
-    // check east
-    let east_check = east | sowe | east;
-    if east_check & occupied > 0 {
-        ret |= east;
+    // check soea
+    let soea_check = east | sowe | soea;
+    if soea_check & occupied > 0 {
+        ret |= soea;
     }
 
     return ret & !obstacles;
@@ -397,7 +397,7 @@ fn are_connected_in_swarm(occupied: u128, to_check: u128) -> bool {
 }
 
 pub fn is_game_finished(game_state: &GameState) -> bool {
-    if game_state.ply > 60 {
+    if game_state.ply >= 60 {
         return true;
     }
 
@@ -411,8 +411,7 @@ pub fn is_game_finished(game_state: &GameState) -> bool {
         & (game_state.occupied[Color::BLUE as usize]
             | game_state.occupied[Color::RED as usize]
             | game_state.obstacles))
-        .count_ones()
-        == 6
+        == bee_neighbours
     {
         return true;
     }
@@ -422,8 +421,7 @@ pub fn is_game_finished(game_state: &GameState) -> bool {
         & (game_state.occupied[Color::BLUE as usize]
             | game_state.occupied[Color::RED as usize]
             | game_state.obstacles))
-        .count_ones()
-        == 6
+        == bee_neighbours
     {
         return true;
     }
