@@ -7,7 +7,14 @@ use crate::piece_type::PieceType;
 
 pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
     if game_state.ply == 0 {
-        // only SetMoves for every piece_type on every field
+        let mut valid_fields = bitboard::constants::VALID_FIELDS;
+        while valid_fields > 1 {
+            let to = valid_fields.trailing_zeros();
+            valid_fields ^= 1 << to;
+            for piece_type in &crate::piece_type::VARIANTS {
+                actionlist.push(Action::SetMove(*piece_type, to as u8));
+            }
+        }
         return;
     }
 
