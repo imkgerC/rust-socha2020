@@ -156,6 +156,12 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
             > 0
         {
             // ant move generation
+            let mut valid = get_ant_destinations(occupied, game_state.obstacles, from_bit);
+            while valid > 0 {
+                let to = valid.trailing_zeros() as u8;
+                valid ^= 1 << to;
+                actionlist.push(Action::DragMove(PieceType::SPIDER, from, to));
+            }
             continue;
         }
         if from_bit
@@ -163,6 +169,20 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
             > 0
         {
             // spider move generation
+            let mut valid = 0;
+            append_spider_destinations(
+                &mut valid,
+                occupied,
+                game_state.obstacles,
+                from_bit,
+                from_bit,
+                3,
+            );
+            while valid > 0 {
+                let to = valid.trailing_zeros() as u8;
+                valid ^= 1 << to;
+                actionlist.push(Action::DragMove(PieceType::SPIDER, from, to));
+            }
             continue;
         }
         if from_bit
@@ -170,13 +190,67 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
             > 0
         {
             // grasshopper move generation
+            let mut valid = get_grasshopper_destinations(occupied, game_state.obstacles, from_bit);
+            while valid > 0 {
+                let to = valid.trailing_zeros() as u8;
+                valid ^= 1 << to;
+                actionlist.push(Action::DragMove(PieceType::GRASSHOPPER, from, to));
+            }
             continue;
         }
     }
 }
 
+fn get_grasshopper_destinations(occupied: u128, obstacles: u128, from: u128) -> u128 {
+    0 // TODO
+}
+
+fn get_ant_destinations(occupied: u128, obstacles: u128, current_field: u128) -> u128 {
+    let mut candidates = get_accessible_neighbours(occupied, obstacles, current_field);
+    let mut destinations = candidates;
+    while candidates > 0 {
+        let current = candidates.trailing_zeros();
+        let current_field = 1 << current;
+        candidates ^= current_field;
+        candidates |= get_accessible_neighbours(occupied, obstacles, current_field);
+        candidates &= !destinations;
+        destinations |= candidates;
+    }
+    return destinations & !current_field;
+}
+
+fn append_spider_destinations(
+    destinations: &mut u128,
+    occupied: u128,
+    obstacles: u128,
+    current_field: u128,
+    mut current_path: u128,
+    to_go: u8,
+) {
+    let mut candidates = get_accessible_neighbours(occupied, obstacles, current_field);
+    candidates &= !current_path;
+    if to_go == 1 {
+        *destinations |= candidates;
+        return;
+    }
+    while candidates > 0 {
+        let current = candidates.trailing_zeros();
+        let current_field = 1 << current;
+        candidates ^= current_field;
+        current_path ^= current_field;
+        append_spider_destinations(
+            destinations,
+            occupied,
+            obstacles,
+            current_field,
+            current_path,
+            to_go - 1,
+        );
+        current_path ^= current_field;
+    }
+}
+
 fn get_beetle_accessible_neighbours(occupied: u128, obstacles: u128, field: u128) -> u128 {
-    let free = !(occupied | obstacles);
     let mut ret = 0;
     let nowe = bitboard::shift_nowe(field);
     let noea = bitboard::shift_noea(field);
