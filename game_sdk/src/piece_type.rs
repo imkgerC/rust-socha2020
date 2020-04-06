@@ -7,6 +7,17 @@ pub enum PieceType {
     GRASSHOPPER = 3,
     SPIDER = 4,
 }
+impl PieceType {
+    pub fn to_string(&self) -> String {
+        match self {
+            PieceType::BEE => "Q".to_owned(),
+            PieceType::ANT => "A".to_owned(),
+            PieceType::BEETLE => "B".to_owned(),
+            PieceType::GRASSHOPPER => "G".to_owned(),
+            PieceType::SPIDER => "S".to_owned(),
+        }
+    }
+}
 
 pub static VARIANTS: [PieceType; 5] = [
     PieceType::BEE,
