@@ -22,10 +22,13 @@ def valid_fields():
                 valid |= bit(x, z)
     return valid
 
-def print_val(label, val):
-    print(label+":")
-    print("\t"+f"{val}")
-    print("\t"+bin(val))
+def print_val(label, val, gen_code=False):
+    if (gen_code):
+        print(f"pub static {label}: u128 = {val};")
+    else:
+        print(label+":")
+        print("\t"+f"{val}")
+        print("\t"+bin(val))
 
 def mask_shift_noWe():
     val = 0
@@ -94,13 +97,14 @@ def mask_shift_west():
     return val
 
 def main():
-    print_val("valid_fields", valid_fields())
-    print_val("shift_noWe_mask", mask_shift_noWe())
-    print_val("shift_noEa_mask", mask_shift_noEa())
-    print_val("shift_soWe_mask", mask_shift_soWe())
-    print_val("shift_soEa_mask", mask_shift_soEa())
-    print_val("shift_east_mask", mask_shift_east())
-    print_val("shift_west_mask", mask_shift_west())
+    gen_code = True
+    print_val("VALID_FIELDS", valid_fields(), gen_code)
+    print_val("SHIFT_NOWE_MASK", mask_shift_noWe(), gen_code)
+    print_val("SHIFT_NOEA_MASK", mask_shift_noEa(), gen_code)
+    print_val("SHIFT_SOWE_MASK", mask_shift_soWe(), gen_code)
+    print_val("SHIFT_SOEA_MASK", mask_shift_soEa(), gen_code)
+    print_val("SHIFT_EAST_MASK", mask_shift_east(), gen_code)
+    print_val("SHIFT_WEST_MASK", mask_shift_west(), gen_code)
 
 if __name__ == "__main__":
     main()
