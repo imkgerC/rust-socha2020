@@ -61,21 +61,37 @@ impl GameState {
                     occupied[self.color_to_move as usize] |= 1 << to;
                 } else {
                     let from_bit = 1 << from;
-                    if (beetle_stack[0][RED as usize] | beetle_stack[0][BLUE as usize]) & from_bit
-                        > 0
-                    {
-                        for index in 1..4 {
-                            if (beetle_stack[index][RED as usize]
-                                | beetle_stack[index][BLUE as usize])
-                                & from_bit
-                                == 0
-                            {
-                                debug_assert!(
-                                    beetle_stack[index - 1][self.color_to_move as usize] & from_bit
-                                        == from_bit
-                                );
-                                beetle_stack[index - 1][self.color_to_move as usize] ^= from_bit;
+                    if (beetle_stack[0][RED as usize] | beetle_stack[0][BLUE as usize]) & from_bit > 0 {
+                        let mut index = 3;
+                        while index > 0 {
+                            if beetle_stack[index][self.color_to_move as usize] & from_bit > 0 {
+                                beetle_stack[index][self.color_to_move as usize] ^= from_bit;
+                                if beetle_stack[index - 1][self.color_to_move as usize] & from_bit
+                                    == 0
+                                {
+                                    // enemy beetle under ours, swap occupancy
+                                    occupied[self.color_to_move as usize] ^= from_bit;
+                                    occupied[self.color_to_move.swap() as usize] |= from_bit;
+                                }
                                 break;
+                            }
+                            index -= 1;
+                        }
+                        if index == 0 {
+                            beetle_stack[0][self.color_to_move as usize] ^= from_bit;
+                            let own_piece = false;
+                            for piece_index in 0..5 {
+                                if pieces[piece_index][self.color_to_move as usize] & from_bit
+                                    == from_bit
+                                {
+                                    own_piece = true;
+                                    break;
+                                }
+                            }
+                            if !own_piece {
+                                // swap occupancy as an enemy piece is now set on this field
+                                occupied[self.color_to_move as usize] ^= from_bit;
+                                occupied[self.color_to_move.swap() as usize] |= from_bit;
                             }
                         }
                     } else {
@@ -84,6 +100,9 @@ impl GameState {
                     }
                     let to_bit = 1 << to;
                     if (occupied[RED as usize] | occupied[BLUE as usize]) & to_bit > 0 {
+                        // set correct occupancy
+                        occupied[self.color_to_move.swap() as usize] &= !to_bit;
+                        occupied[self.color_to_move as usize] |= to_bit;
                         for index in 0..4 {
                             if (beetle_stack[index][RED as usize]
                                 | beetle_stack[index][BLUE as usize])
