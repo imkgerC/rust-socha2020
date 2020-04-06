@@ -4,16 +4,12 @@ use std::time::Instant;
 
 fn main() {
     // Do some perft testing
-    let state = GameState::new();
+    let mut state = GameState::new();
+    state.obstacles = (1 << 55) | (1 << 63) | (1 << 50);
     let now = Instant::now();
-    let nodes = state.perft(5);
+    let nodes = state.perft(3);
     let time_elapsed = now.elapsed().as_micros();
     let nps = (1000 * nodes) as f64 / time_elapsed as f64;
-    println!("Time: {} ,Nodes: {}, KNPS: {}", time_elapsed, nodes, nps);
-    let state = state.make_action(Action::SetMove(PieceType::BEE, 11));
-    let state = state.make_action(Action::SetMove(PieceType::ANT, 47));
-    let state = state.make_action(Action::SetMove(PieceType::BEETLE, 108));
-    let state = state.make_action(Action::SetMove(PieceType::GRASSHOPPER, 82));
-    let state = state.make_action(Action::SetMove(PieceType::SPIDER, 4));
+    println!("Time: {}, Nodes: {}, KNPS: {}", time_elapsed, nodes, nps);
     println!("{}", state);
 }

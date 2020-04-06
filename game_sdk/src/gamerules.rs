@@ -348,69 +348,33 @@ fn get_accessible_neighbours(occupied: u128, obstacles: u128, field: u128) -> u1
     let west = bitboard::shift_west(field);
     // check nowe
     let nowe_check = west | noea;
-    if nowe_check.count_ones() == 1 {
-        if nowe_check & occupied > 0 {
-            ret |= nowe;
-        }
-    } else {
-        if nowe_check & occupied > 0 && nowe_check & free > 0 {
-            ret |= nowe;
-        }
+    if nowe_check & obstacles == 0 && (nowe_check & occupied).count_ones() == 1 {
+        ret |= nowe;
     }
     // check west
     let west_check = nowe | sowe;
-    if west_check.count_ones() == 1 {
-        if west_check & occupied > 0 {
-            ret |= west;
-        }
-    } else {
-        if west_check & occupied > 0 && west_check & free > 0 {
-            ret |= west;
-        }
+    if west_check & obstacles == 0 && (west_check & occupied).count_ones() == 1 {
+        ret |= west;
     }
     // check noea
     let noea_check = nowe | east;
-    if noea_check.count_ones() == 1 {
-        if noea_check & occupied > 0 {
-            ret |= noea;
-        }
-    } else {
-        if noea_check & occupied > 0 && noea_check & free > 0 {
-            ret |= noea;
-        }
+    if noea_check & obstacles == 0 && (noea_check & occupied).count_ones() == 1 {
+        ret |= noea;
     }
     // check east
     let east_check = noea | soea;
-    if east_check.count_ones() == 1 {
-        if east_check & occupied > 0 {
-            ret |= east;
-        }
-    } else {
-        if east_check & occupied > 0 && east_check & free > 0 {
-            ret |= east;
-        }
+    if east_check & obstacles == 0 && (east_check & occupied).count_ones() == 1 {
+        ret |= east;
     }
     // check sowe
     let sowe_check = soea | west;
-    if sowe_check.count_ones() == 1 {
-        if sowe_check & occupied > 0 {
-            ret |= sowe;
-        }
-    } else {
-        if sowe_check & occupied > 0 && sowe_check & free > 0 {
-            ret |= sowe;
-        }
+    if sowe_check & obstacles == 0 && (sowe_check & occupied).count_ones() == 1 {
+        ret |= sowe;
     }
-    // check east
-    let east_check = soea | noea;
-    if east_check.count_ones() == 1 {
-        if east_check & occupied > 0 {
-            ret |= east;
-        }
-    } else {
-        if east_check & occupied > 0 && east_check & free > 0 {
-            ret |= east;
-        }
+    // check soea
+    let soea_check = sowe | east;
+    if soea_check & obstacles == 0 && (soea_check & occupied).count_ones() == 1 {
+        ret |= soea;
     }
 
     return ret & free;
