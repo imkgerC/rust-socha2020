@@ -1,9 +1,9 @@
-mod gamestate;
-pub mod gamerules;
-mod bitboard;
 mod action;
-mod piece_type;
 mod actionlist;
+mod bitboard;
+pub mod gamerules;
+mod gamestate;
+mod piece_type;
 
 #[cfg(test)]
 mod tests {
