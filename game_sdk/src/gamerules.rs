@@ -1,21 +1,26 @@
+use crate::action::Action;
 use crate::actionlist::ActionList;
 use crate::bitboard;
+use crate::gamestate::Color;
 use crate::gamestate::GameState;
 use crate::piece_type::PieceType;
 
 pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
     if game_state.ply == 0 {
-        // only SetMoves for every piece_type on every field
+        let mut valid_fields = bitboard::constants::VALID_FIELDS;
+        while valid_fields > 1 {
+            let to = valid_fields.trailing_zeros();
+            valid_fields ^= 1 << to;
+            for piece_type in &crate::piece_type::VARIANTS {
+                actionlist.push(Action::SetMove(*piece_type, to as u8));
+            }
+        }
         return;
     }
 
     if game_state.ply == 1 {
         // only SetMoves next to only set enemy piece
         return;
-    }
-
-    if game_state.ply % 2 == 0 {
-        // check if game is over
     }
 
     if game_state.must_player_place_bee() {
@@ -31,21 +36,39 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
 
     if actionlist.size == 0 {
         // add SkipMove to actionList
+        actionlist.push(Action::SkipMove);
     }
 }
 
 pub fn is_game_finished(game_state: &GameState) -> bool {
-    debug_assert!(game_state.ply % 2 == 0);
-
     if game_state.ply > 60 {
         return true;
     }
 
-    if bitboard::get_neighbours(game_state.pieces[PieceType::BEE as usize][0]).count_ones() == 6 {
-        return true;
+    if game_state.ply % 2 == 1 {
+        return false;
     }
 
-    if bitboard::get_neighbours(game_state.pieces[PieceType::BEE as usize][1]).count_ones() == 6 {
+    let bee_neighbours =
+        bitboard::get_neighbours(game_state.pieces[PieceType::BEE as usize][Color::RED as usize]);
+    if (bee_neighbours
+        & (game_state.occupied[Color::BLUE as usize]
+            | game_state.occupied[Color::RED as usize]
+            | game_state.obstacles))
+        .count_ones()
+        == 6
+    {
+        return true;
+    }
+    let bee_neighbours =
+        bitboard::get_neighbours(game_state.pieces[PieceType::BEE as usize][Color::BLUE as usize]);
+    if (bee_neighbours
+        & (game_state.occupied[Color::BLUE as usize]
+            | game_state.occupied[Color::RED as usize]
+            | game_state.obstacles))
+        .count_ones()
+        == 6
+    {
         return true;
     }
 

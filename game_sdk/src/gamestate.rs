@@ -1,6 +1,6 @@
 use crate::action::Action;
 use crate::actionlist::ActionListStack;
-use crate::gamerules::calculate_legal_moves;
+use crate::gamerules::{calculate_legal_moves, is_game_finished};
 use crate::gamestate::Color::{BLUE, RED};
 use crate::piece_type::PieceType;
 
@@ -29,6 +29,7 @@ pub struct GameState {
     pub occupied: [u128; 2],
     pub pieces: [[u128; 2]; 5],
     pub beetle_stack: [[u128; 2]; 4],
+    pub obstacles: u128,
 }
 impl GameState {
     pub fn new() -> GameState {
@@ -38,6 +39,7 @@ impl GameState {
             occupied: [0u128; 2],
             pieces: [[0u128; 2]; 5],
             beetle_stack: [[0u128; 2]; 4],
+            obstacles: 0,
         }
     }
 
@@ -81,7 +83,7 @@ impl GameState {
                         }
                         if index == 0 {
                             beetle_stack[0][self.color_to_move as usize] ^= from_bit;
-                            let own_piece = false;
+                            let mut own_piece = false;
                             for piece_index in 0..5 {
                                 if pieces[piece_index][self.color_to_move as usize] & from_bit
                                     == from_bit
@@ -132,6 +134,7 @@ impl GameState {
             occupied,
             pieces,
             beetle_stack,
+            obstacles: self.obstacles,
         }
     }
 
@@ -146,35 +149,39 @@ impl GameState {
     fn iperft_root(&self, depth: usize, print: bool) -> u64 {
         if depth == 0 {
             return 1;
-        } else {
-            let mut als = ActionListStack::with_size(depth + 1);
-            calculate_legal_moves(self, &mut als[depth]);
-            let mut nc = 0u64;
-            for i in 0..als[depth].size {
-                let action = als[depth][i];
-                let next_state = self.make_action(action);
-                let n = next_state.iperft(depth - 1, &mut als);
-                if print {
-                    println!("{:?}: {}", action, n);
-                }
-                nc += n;
-            }
-            nc
         }
+        if is_game_finished(self) {
+            return 1;
+        }
+        let mut als = ActionListStack::with_size(depth + 1);
+        calculate_legal_moves(self, &mut als[depth]);
+        let mut nc = 0u64;
+        for i in 0..als[depth].size {
+            let action = als[depth][i];
+            let next_state = self.make_action(action);
+            let n = next_state.iperft(depth - 1, &mut als);
+            if print {
+                println!("{:?}: {}", action, n);
+            }
+            nc += n;
+        }
+        nc
     }
 
     fn iperft(&self, depth: usize, als: &mut ActionListStack) -> u64 {
         if depth == 0 {
             return 1;
-        } else {
-            calculate_legal_moves(self, &mut als[depth]);
-            let mut nc = 0u64;
-            for i in 0..als[depth].size {
-                let next_state = self.make_action(als[depth][i]);
-                nc += next_state.iperft(depth - 1, als);
-            }
-            nc
         }
+        if is_game_finished(self) {
+            return 1;
+        }
+        calculate_legal_moves(self, &mut als[depth]);
+        let mut nc = 0u64;
+        for i in 0..als[depth].size {
+            let next_state = self.make_action(als[depth][i]);
+            nc += next_state.iperft(depth - 1, als);
+        }
+        nc
     }
 
     pub fn must_player_place_bee(&self) -> bool {

@@ -7,3 +7,11 @@ pub enum PieceType {
     GRASSHOPPER = 3,
     SPIDER = 4,
 }
+
+pub static VARIANTS: [PieceType; 5] = [
+    PieceType::BEE,
+    PieceType::BEETLE,
+    PieceType::ANT,
+    PieceType::GRASSHOPPER,
+    PieceType::SPIDER,
+];
