@@ -257,8 +257,7 @@ fn get_ant_destinations(occupied: u128, obstacles: u128, current_field: u128) ->
         let current = candidates.trailing_zeros();
         let current_field = 1 << current;
         candidates ^= current_field;
-        candidates |= get_accessible_neighbours(occupied, obstacles, current_field);
-        candidates &= !destinations;
+        candidates |= get_accessible_neighbours(occupied, obstacles, current_field) & !destinations;
         destinations |= candidates;
     }
     return destinations & !current_field;
