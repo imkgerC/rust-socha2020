@@ -29,6 +29,7 @@ pub struct GameState {
     pub occupied: [u128; 2],
     pub pieces: [[u128; 2]; 5],
     pub beetle_stack: [[u128; 2]; 4],
+    pub obstacles: u128,
 }
 impl GameState {
     pub fn new() -> GameState {
@@ -38,6 +39,7 @@ impl GameState {
             occupied: [0u128; 2],
             pieces: [[0u128; 2]; 5],
             beetle_stack: [[0u128; 2]; 4],
+            obstacles: 0,
         }
     }
 
@@ -79,7 +81,7 @@ impl GameState {
                         }
                         if index == 0 {
                             beetle_stack[0][self.color_to_move as usize] ^= from_bit;
-                            let own_piece = false;
+                            let mut own_piece = false;
                             for piece_index in 0..5 {
                                 if pieces[piece_index][self.color_to_move as usize] & from_bit
                                     == from_bit
@@ -126,6 +128,7 @@ impl GameState {
             occupied,
             pieces,
             beetle_stack,
+            obstacles: self.obstacles,
         }
     }
 

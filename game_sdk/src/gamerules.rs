@@ -1,5 +1,6 @@
 use crate::actionlist::ActionList;
 use crate::bitboard;
+use crate::gamestate::Color;
 use crate::gamestate::GameState;
 use crate::piece_type::PieceType;
 
@@ -41,11 +42,26 @@ pub fn is_game_finished(game_state: &GameState) -> bool {
         return true;
     }
 
-    if bitboard::get_neighbours(game_state.pieces[PieceType::BEE as usize][0]).count_ones() == 6 {
+    let bee_neighbours =
+        bitboard::get_neighbours(game_state.pieces[PieceType::BEE as usize][Color::RED as usize]);
+    if (bee_neighbours
+        & (game_state.occupied[Color::BLUE as usize]
+            | game_state.occupied[Color::RED as usize]
+            | game_state.obstacles))
+        .count_ones()
+        == 6
+    {
         return true;
     }
-
-    if bitboard::get_neighbours(game_state.pieces[PieceType::BEE as usize][1]).count_ones() == 6 {
+    let bee_neighbours =
+        bitboard::get_neighbours(game_state.pieces[PieceType::BEE as usize][Color::BLUE as usize]);
+    if (bee_neighbours
+        & (game_state.occupied[Color::BLUE as usize]
+            | game_state.occupied[Color::RED as usize]
+            | game_state.obstacles))
+        .count_ones()
+        == 6
+    {
         return true;
     }
 
