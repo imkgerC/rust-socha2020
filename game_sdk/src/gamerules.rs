@@ -7,8 +7,9 @@ use crate::piece_type::PieceType;
 
 pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
     if game_state.ply == 0 {
+        // SetMoves for every field and every PieceType
         let mut valid_fields = bitboard::constants::VALID_FIELDS & !game_state.obstacles;
-        while valid_fields > 1 {
+        while valid_fields > 0 {
             let to = valid_fields.trailing_zeros();
             valid_fields ^= 1 << to;
             for piece_type in &crate::piece_type::VARIANTS {
@@ -20,6 +21,16 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
 
     if game_state.ply == 1 {
         // only SetMoves next to only set enemy piece
+        // enemy is always red in first move
+        let next_to_enemy = bitboard::get_neighbours(game_state.occupied[Color::RED as usize]);
+        let mut valid_fields = next_to_enemy & !game_state.obstacles;
+        while valid_fields > 0 {
+            let to = valid_fields.trailing_zeros();
+            valid_fields ^= 1 << to;
+            for piece_type in &crate::piece_type::VARIANTS {
+                actionlist.push(Action::SetMove(*piece_type, to as u8));
+            }
+        }
         return;
     }
 
