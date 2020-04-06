@@ -2,6 +2,8 @@ mod gamestate;
 pub mod gamerules;
 mod bitboard;
 mod action;
+mod piece_type;
+mod actionlist;
 
 #[cfg(test)]
 mod tests {
