@@ -6,6 +6,7 @@ use crate::gamestate::GameState;
 use crate::piece_type::PieceType;
 
 pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
+    actionlist.size = 0;
     if game_state.ply == 0 {
         // SetMoves for every field and every PieceType
         let mut valid_fields = bitboard::constants::VALID_FIELDS & !game_state.obstacles;
@@ -123,7 +124,7 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
             | game_state.occupied[Color::BLUE as usize])
             ^ from_bit;
         let neighbours = bitboard::get_neighbours(from_bit) & occupied;
-        if !are_connected_in_swarm(occupied, neighbours) {
+        if !are_connected_in_swarm(game_state, occupied, neighbours) {
             continue;
         }
         if from_bit & game_state.pieces[PieceType::BEE as usize][game_state.color_to_move as usize]
@@ -148,7 +149,7 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
             while valid > 0 {
                 let to = valid.trailing_zeros() as u8;
                 valid ^= 1 << to;
-                actionlist.push(Action::DragMove(PieceType::BEE, from, to));
+                actionlist.push(Action::DragMove(PieceType::BEETLE, from, to));
             }
             continue;
         }
@@ -160,7 +161,7 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
             while valid > 0 {
                 let to = valid.trailing_zeros() as u8;
                 valid ^= 1 << to;
-                actionlist.push(Action::DragMove(PieceType::SPIDER, from, to));
+                actionlist.push(Action::DragMove(PieceType::ANT, from, to));
             }
             continue;
         }
@@ -401,7 +402,7 @@ fn get_accessible_neighbours(occupied: u128, obstacles: u128, field: u128) -> u1
         }
     }
     // check east
-    let east_check = east | sowe;
+    let east_check = soea | noea;
     if east_check.count_ones() == 1 {
         if east_check & occupied > 0 {
             ret |= east;
@@ -415,7 +416,12 @@ fn get_accessible_neighbours(occupied: u128, obstacles: u128, field: u128) -> u1
     return ret & free;
 }
 
-fn are_connected_in_swarm(occupied: u128, to_check: u128) -> bool {
+fn are_connected_in_swarm(game_state: &GameState, occupied: u128, to_check: u128) -> bool {
+    if to_check == 0 {
+        println!("{}", game_state);
+        println!("{}", occupied);
+        panic!("is not allowed by the rules");
+    }
     if to_check.count_ones() == 1 {
         return true;
     }

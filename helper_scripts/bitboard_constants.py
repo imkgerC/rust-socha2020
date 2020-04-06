@@ -85,6 +85,20 @@ def mask_shift_east():
         val |= bit(5 + z, z)
     return val
 
+def mask_shift_unsafe_east():
+    val = 0
+    # top right edge
+    for z in range(5, 11):
+        val |= bit(10, z)
+    return val
+
+def mask_shift_unsafe_west():
+    val = 0
+    # bottom left edge
+    for z in range(0, 6):
+        val |= bit(0, z)
+    return val
+
 def mask_shift_west():
     val = 0
     # top left edge
@@ -105,6 +119,8 @@ def main():
     print_val("SHIFT_SOEA_MASK", mask_shift_soEa(), gen_code)
     print_val("SHIFT_EAST_MASK", mask_shift_east(), gen_code)
     print_val("SHIFT_WEST_MASK", mask_shift_west(), gen_code)
+    print_val("SHIFT_EAST_UNSAFE_MASK", mask_shift_unsafe_east(), gen_code)
+    print_val("SHIFT_WEST_UNSAFE_MASK", mask_shift_unsafe_west(), gen_code)
 
 if __name__ == "__main__":
     main()

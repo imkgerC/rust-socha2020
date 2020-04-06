@@ -6,15 +6,17 @@ pub mod constants {
     pub static SHIFT_SOEA_MASK: u128 = 36902497546234103776;
     pub static SHIFT_EAST_MASK: u128 = 1329877349959700883091619741417209888;
     pub static SHIFT_WEST_MASK: u128 = 41548518549565135954022796120557569;
+    pub static SHIFT_EAST_UNSAFE_MASK: u128 = 1329877349959700883082610342602211328;
+    pub static SHIFT_WEST_UNSAFE_MASK: u128 = 36046397799139329;
 }
 
 #[inline(always)]
 pub fn get_neighbours(bitboard: u128) -> u128 {
-    let shifted_east = shift_east(bitboard) | bitboard;
+    let shifted_east = shift_east_unsafe(bitboard) | bitboard;
     let right_portion = shift_nowe(shifted_east) | shifted_east;
-    let shifted_west = shift_west(bitboard) | bitboard;
+    let shifted_west = shift_west_unsafe(bitboard) | bitboard;
     let left_portion = shift_soea(shifted_west) | shifted_west;
-    return (left_portion | right_portion) ^ bitboard;
+    return ((left_portion | right_portion) ^ bitboard) & constants::VALID_FIELDS;
 }
 
 #[inline(always)]
@@ -25,6 +27,16 @@ pub fn shift_east(bitboard: u128) -> u128 {
 #[inline(always)]
 pub fn shift_west(bitboard: u128) -> u128 {
     return (bitboard & !constants::SHIFT_WEST_MASK) >> 1;
+}
+
+#[inline(always)]
+pub fn shift_east_unsafe(bitboard: u128) -> u128 {
+    return (bitboard & !constants::SHIFT_EAST_UNSAFE_MASK) << 1;
+}
+
+#[inline(always)]
+pub fn shift_west_unsafe(bitboard: u128) -> u128 {
+    return (bitboard & !constants::SHIFT_WEST_UNSAFE_MASK) >> 1;
 }
 
 #[inline(always)]
