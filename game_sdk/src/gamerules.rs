@@ -1,3 +1,4 @@
+use crate::action::Action;
 use crate::actionlist::ActionList;
 use crate::bitboard;
 use crate::gamestate::Color;
@@ -15,10 +16,6 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
         return;
     }
 
-    if game_state.ply % 2 == 0 {
-        // check if game is over
-    }
-
     if game_state.must_player_place_bee() {
         // only bee SetMoves
         return;
@@ -32,14 +29,17 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
 
     if actionlist.size == 0 {
         // add SkipMove to actionList
+        actionlist.push(Action::SkipMove);
     }
 }
 
 pub fn is_game_finished(game_state: &GameState) -> bool {
-    debug_assert!(game_state.ply % 2 == 0);
-
     if game_state.ply > 60 {
         return true;
+    }
+
+    if game_state.ply % 2 == 1 {
+        return false;
     }
 
     let bee_neighbours =
