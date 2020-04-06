@@ -42,12 +42,65 @@ impl GameState {
     }
 
     pub fn make_action(&self, action: Action) -> GameState {
+        let mut pieces = self.pieces.clone();
+        let mut occupied = self.occupied.clone();
+        let mut beetle_stack = self.beetle_stack.clone();
+        match action {
+            Action::SkipMove => {}
+            Action::DragMove(piece_type, from, to) => {
+                if piece_type != PieceType::BEETLE {
+                    // unset field
+                    debug_assert!(
+                        pieces[piece_type as usize][self.color_to_move as usize] & (1 << from) > 0
+                    );
+                    debug_assert!(occupied[self.color_to_move as usize] & (1 << from) > 0);
+                    pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << from;
+                    occupied[self.color_to_move as usize] ^= 1 << from;
+                    // set field
+                    pieces[piece_type as usize][self.color_to_move as usize] |= 1 << to;
+                    occupied[self.color_to_move as usize] |= 1 << to;
+                } else {
+                    let from_bit = 1 << from;
+                    if (beetle_stack[0][0] | beetle_stack[0][1]) & from_bit > 0 {
+                        for index in 1..4 {
+                            if (beetle_stack[index][0] | beetle_stack[index][1]) & from_bit == 0 {
+                                debug_assert!(
+                                    beetle_stack[index - 1][self.color_to_move as usize] & from_bit
+                                        == from_bit
+                                );
+                                beetle_stack[index - 1][self.color_to_move as usize] ^= from_bit;
+                                break;
+                            }
+                        }
+                    } else {
+                        pieces[PieceType::BEETLE as usize][self.color_to_move as usize] ^= from_bit;
+                        occupied[self.color_to_move as usize] ^= from_bit;
+                    }
+                    let to_bit = 1 << to;
+                    if (occupied[0] | occupied[1]) & to_bit > 0 {
+                        for index in 0..4 {
+                            if (beetle_stack[index][0] | beetle_stack[index][1]) & to_bit == 0 {
+                                beetle_stack[index][self.color_to_move as usize] |= to_bit;
+                                break;
+                            }
+                        }
+                    } else {
+                        pieces[piece_type as usize][self.color_to_move as usize] |= to_bit;
+                        occupied[self.color_to_move as usize] |= to_bit;
+                    }
+                }
+            }
+            Action::SetMove(piece_type, to) => {
+                pieces[piece_type as usize][self.color_to_move as usize] |= 1 << to;
+                occupied[self.color_to_move as usize] |= 1 << to;
+            }
+        };
         GameState {
             ply: self.ply + 1,
             color_to_move: self.color_to_move.swap(),
-            occupied: self.occupied.clone(),
-            pieces: self.pieces.clone(),
-            beetle_stack: self.beetle_stack.clone(),
+            occupied,
+            pieces,
+            beetle_stack,
         }
     }
 
