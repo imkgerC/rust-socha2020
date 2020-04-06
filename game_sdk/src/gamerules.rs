@@ -202,7 +202,51 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
 }
 
 fn get_grasshopper_destinations(occupied: u128, obstacles: u128, from: u128) -> u128 {
-    0 // TODO
+    let mut destinations = 0;
+
+    // nowe
+    let mut nowe = bitboard::shift_nowe(from);
+    while nowe & occupied > 0 {
+        nowe = bitboard::shift_nowe(nowe);
+    }
+    destinations |= nowe;
+
+    // noea
+    let mut noea = bitboard::shift_noea(from);
+    while noea & occupied > 0 {
+        noea = bitboard::shift_noea(noea);
+    }
+    destinations |= noea;
+
+    // soea
+    let mut soea = bitboard::shift_soea(from);
+    while soea & occupied > 0 {
+        soea = bitboard::shift_soea(soea);
+    }
+    destinations |= soea;
+
+    // sowe
+    let mut sowe = bitboard::shift_sowe(from);
+    while sowe & occupied > 0 {
+        sowe = bitboard::shift_sowe(sowe);
+    }
+    destinations |= sowe;
+
+    // east
+    let mut east = bitboard::shift_east(from);
+    while east & occupied > 0 {
+        east = bitboard::shift_east(east);
+    }
+    destinations |= east;
+
+    // west
+    let mut west = bitboard::shift_west(from);
+    while west & occupied > 0 {
+        west = bitboard::shift_west(west);
+    }
+    destinations |= west;
+
+    return destinations & !(obstacles | bitboard::get_neighbours(from));
 }
 
 fn get_ant_destinations(occupied: u128, obstacles: u128, current_field: u128) -> u128 {
