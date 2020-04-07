@@ -65,12 +65,30 @@ impl GameState {
             FieldType::FREE
         }
     }
+
+    #[inline(always)]
+    pub fn pieces_from_color(&self, color: Color) -> u128 {
+        self.pieces[PieceType::BEE as usize][color as usize]
+            | self.pieces[PieceType::SPIDER as usize][color as usize]
+            | self.pieces[PieceType::GRASSHOPPER as usize][color as usize]
+            | self.pieces[PieceType::BEETLE as usize][color as usize]
+            | self.pieces[PieceType::ANT as usize][color as usize]
+    }
+    #[inline(always)]
+    pub fn occupied(&self) -> u128 {
+        self.occupied[Color::RED as usize] | self.occupied[Color::BLUE as usize]
+    }
+
+    #[inline(always)]
     pub fn is_on_stack(&self, index: usize) -> bool {
         self.is_on_colored_stack(index, Color::RED) || self.is_on_colored_stack(index, Color::BLUE)
     }
+
+    #[inline(always)]
     pub fn is_on_colored_stack(&self, index: usize, color: Color) -> bool {
         (1u128 << index) & self.beetle_stack[0][color as usize] != 0
     }
+
     pub fn make_action(&self, action: Action) -> GameState {
         let mut pieces = self.pieces.clone();
         let mut occupied = self.occupied.clone();
@@ -87,13 +105,15 @@ impl GameState {
                     pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << from;
                     occupied[self.color_to_move as usize] ^= 1 << from;
                     // set field
-                    pieces[piece_type as usize][self.color_to_move as usize] |= 1 << to;
-                    occupied[self.color_to_move as usize] |= 1 << to;
+                    debug_assert!(
+                        pieces[piece_type as usize][self.color_to_move as usize] & (1 << to) == 0
+                    );
+                    debug_assert!((self.occupied() | self.obstacles) & (1 << to) == 0);
+                    pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << to;
+                    occupied[self.color_to_move as usize] ^= 1 << to;
                 } else {
                     let from_bit = 1 << from;
-                    if (beetle_stack[0][RED as usize] | beetle_stack[0][BLUE as usize]) & from_bit
-                        > 0
-                    {
+                    if self.is_on_stack(from as usize) {
                         let mut index = 3;
                         while index > 0 {
                             if beetle_stack[index][self.color_to_move as usize] & from_bit > 0 {
@@ -102,58 +122,93 @@ impl GameState {
                                     == 0
                                 {
                                     // enemy beetle under ours, swap occupancy
+                                    debug_assert!(
+                                        (occupied[self.color_to_move as usize] & from_bit)
+                                            .count_ones()
+                                            == 1
+                                    );
+                                    debug_assert!(
+                                        occupied[self.color_to_move.swap() as usize] & from_bit
+                                            == 0
+                                    );
                                     occupied[self.color_to_move as usize] ^= from_bit;
-                                    occupied[self.color_to_move.swap() as usize] |= from_bit;
+                                    occupied[self.color_to_move.swap() as usize] ^= from_bit;
                                 }
                                 break;
                             }
+                            debug_assert!(
+                                beetle_stack[index][self.color_to_move.swap() as usize] & from_bit
+                                    == 0
+                            ); //Make sure our beetle is actually on top of the stack
                             index -= 1;
                         }
                         if index == 0 {
+                            debug_assert!(
+                                (beetle_stack[0][self.color_to_move as usize] & from_bit)
+                                    .count_ones()
+                                    == 1
+                            );
                             beetle_stack[0][self.color_to_move as usize] ^= from_bit;
-                            let mut own_piece = false;
-                            for piece_index in 0..5 {
-                                if pieces[piece_index][self.color_to_move as usize] & from_bit
-                                    == from_bit
-                                {
-                                    own_piece = true;
-                                    break;
-                                }
-                            }
+                            let own_piece =
+                                self.pieces_from_color(self.color_to_move) & from_bit == from_bit;
                             if !own_piece {
                                 // swap occupancy as an enemy piece is now set on this field
+                                debug_assert!(
+                                    occupied[self.color_to_move as usize] & from_bit == from_bit
+                                );
+                                debug_assert!(
+                                    occupied[self.color_to_move.swap() as usize] & from_bit == 0
+                                );
                                 occupied[self.color_to_move as usize] ^= from_bit;
-                                occupied[self.color_to_move.swap() as usize] |= from_bit;
+                                occupied[self.color_to_move.swap() as usize] ^= from_bit;
                             }
                         }
                     } else {
+                        debug_assert!(
+                            pieces[PieceType::BEETLE as usize][self.color_to_move as usize]
+                                & from_bit
+                                == from_bit
+                        );
+                        debug_assert!(occupied[self.color_to_move as usize] & from_bit == from_bit);
                         pieces[PieceType::BEETLE as usize][self.color_to_move as usize] ^= from_bit;
                         occupied[self.color_to_move as usize] ^= from_bit;
                     }
+
                     let to_bit = 1 << to;
-                    if (occupied[RED as usize] | occupied[BLUE as usize]) & to_bit > 0 {
+                    if (self.occupied()) & to_bit > 0 {
+                        //SEt on stack
                         // set correct occupancy
+                        //We don't know what color we are sitting on
                         occupied[self.color_to_move.swap() as usize] &= !to_bit;
                         occupied[self.color_to_move as usize] |= to_bit;
+
                         for index in 0..4 {
                             if (beetle_stack[index][RED as usize]
                                 | beetle_stack[index][BLUE as usize])
                                 & to_bit
                                 == 0
                             {
-                                beetle_stack[index][self.color_to_move as usize] |= to_bit;
+                                beetle_stack[index][self.color_to_move as usize] ^= to_bit;
                                 break;
                             }
                         }
                     } else {
-                        pieces[piece_type as usize][self.color_to_move as usize] |= to_bit;
-                        occupied[self.color_to_move as usize] |= to_bit;
+                        //Normal move
+                        debug_assert!(
+                            pieces[PieceType::BEETLE as usize][self.color_to_move as usize]
+                                & to_bit
+                                == 0
+                        );
+                        debug_assert!(occupied[self.color_to_move as usize] & to_bit == 0);
+                        pieces[PieceType::BEETLE as usize][self.color_to_move as usize] ^= to_bit;
+                        occupied[self.color_to_move as usize] ^= to_bit;
                     }
                 }
             }
             Action::SetMove(piece_type, to) => {
-                pieces[piece_type as usize][self.color_to_move as usize] |= 1 << to;
-                occupied[self.color_to_move as usize] |= 1 << to;
+                debug_assert!((self.occupied() | self.obstacles) & (1 << to) == 0);
+                pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << to;
+                occupied[self.color_to_move as usize] ^= 1 << to;
             }
         };
         GameState {
