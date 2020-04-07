@@ -392,6 +392,7 @@ impl Display for GameState {
             res_str.push_str("-");
         }
         res_str.push_str("\n");
+        let mut stack_strings: Vec<String> = Vec::new();
         for y in 0..11isize {
             let y = 10 - y;
             res_str.push_str("|");
@@ -411,10 +412,62 @@ impl Display for GameState {
                 let field_type = self.field_type(index);
                 if let FieldType::USED(pt) = field_type {
                     //Get color of piece type
+                    let is_on_stack = self.is_on_stack(index);
+                    if is_on_stack {
+                        let mut stack_str = String::new();
+                        for i in 0..4 {
+                            if (self.beetle_stack[i][RED as usize] & (1u128 << index)) > 0 {
+                                if i > 0 {
+                                    stack_str.push_str(&format!(
+                                        "<-{}",
+                                        PieceType::BEETLE.to_string().color("red")
+                                    ));
+                                } else {
+                                    stack_str.push_str(&format!(
+                                        "{}",
+                                        PieceType::BEETLE.to_string().color("red")
+                                    ));
+                                }
+                            } else if (self.beetle_stack[i][BLUE as usize] & (1u128 << index)) > 0 {
+                                if i > 0 {
+                                    stack_str.push_str(&format!(
+                                        "<-{}",
+                                        PieceType::BEETLE.to_string().color("blue")
+                                    ));
+                                } else {
+                                    stack_str.push_str(&format!(
+                                        "{}",
+                                        PieceType::BEETLE.to_string().color("blue")
+                                    ));
+                                }
+                            } else {
+                                break;
+                            }
+                        }
+                        stack_strings.push(stack_str);
+                    }
+                    let stack_num = format!("{}", stack_strings.len());
                     if self.pieces[pt as usize][RED as usize] & (1u128 << index) != 0 {
-                        res_str.push_str(&format!(" {} ", field_type.to_string().color("red")));
+                        if !is_on_stack {
+                            res_str.push_str(&format!(" {} ", field_type.to_string().color("red")));
+                        } else {
+                            res_str.push_str(&format!(
+                                " {}{}",
+                                field_type.to_string().color("red"),
+                                stack_num
+                            ));
+                        }
                     } else {
-                        res_str.push_str(&format!(" {} ", field_type.to_string().color("blue")));
+                        if !is_on_stack {
+                            res_str
+                                .push_str(&format!(" {} ", field_type.to_string().color("blue")));
+                        } else {
+                            res_str.push_str(&format!(
+                                " {}{}",
+                                field_type.to_string().color("blue"),
+                                stack_num
+                            ));
+                        }
                     }
                 } else {
                     res_str.push_str(&format!(" {} ", field_type.to_string()));
@@ -433,6 +486,9 @@ impl Display for GameState {
             res_str.push_str("-");
         }
         res_str.push_str("\n");
+        for (i, stack_str) in stack_strings.iter().enumerate() {
+            res_str.push_str(&format!("Stack {}: {}\n", i + 1, stack_str));
+        }
         res_str.push_str(&format!(
             "Ply: {}\nColor to move: {:?}",
             self.ply, self.color_to_move
