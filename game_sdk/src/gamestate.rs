@@ -152,6 +152,13 @@ impl GameState {
                 }
             }
             Action::SetMove(piece_type, to) => {
+                debug_assert!(
+                    (occupied[Color::RED as usize]
+                        | occupied[Color::BLUE as usize]
+                        | self.obstacles)
+                        & (1 << to)
+                        == 0
+                );
                 pieces[piece_type as usize][self.color_to_move as usize] |= 1 << to;
                 occupied[self.color_to_move as usize] |= 1 << to;
             }

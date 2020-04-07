@@ -5,7 +5,6 @@ use std::time::Instant;
 fn main() {
     // Do some perft testing
     let mut state = GameState::new();
-    state.obstacles = (1 << 55) | (1 << 63) | (1 << 50);
     let now = Instant::now();
     let nodes = state.perft(3);
     let time_elapsed = now.elapsed().as_micros();

@@ -39,7 +39,11 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
         bitboard::get_neighbours(game_state.occupied[game_state.color_to_move as usize]);
     let next_to_other =
         bitboard::get_neighbours(game_state.occupied[game_state.color_to_move.swap() as usize]);
-    let mut valid_set_destinations = next_to_own & !(next_to_other | game_state.obstacles);
+    let mut valid_set_destinations = next_to_own
+        & !(next_to_other
+            | game_state.obstacles
+            | game_state.occupied[Color::RED as usize]
+            | game_state.occupied[Color::BLUE as usize]);
 
     if game_state.must_player_place_bee() {
         // only bee SetMoves
