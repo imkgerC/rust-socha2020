@@ -5,30 +5,10 @@ use std::time::Instant;
 
 fn main() {
     // Do some perft testing
+    //FEN of midgame position:
+    //FEN: 20 RED 19807040637789456435240771584 576460752303423488 0 0 0 140737488355328 0 0 0 34359738368 4835703278458585418301440 140737488355328 2417851639229258349412352 8388608 2361183241434822606848 144115188109410304 0 288230376151711744 576460752303423488
     generate_magic();
-    let mut state = GameState::new();
-    state.obstacles |= (1u128 << 13) | (1u128 << 63) | (1u128 << 94);
-    state.make_action(Action::SetMove(PieceType::BEETLE, 47));
-    state.make_action(Action::SetMove(PieceType::SPIDER, 59));
-    state.make_action(Action::SetMove(PieceType::BEETLE, 46));
-    state.make_action(Action::SetMove(PieceType::BEETLE, 70));
-    state.make_action(Action::SetMove(PieceType::BEE, 35));
-    state.make_action(Action::SetMove(PieceType::ANT, 60));
-    state.make_action(Action::SetMove(PieceType::ANT, 36));
-    state.make_action(Action::SetMove(PieceType::BEE, 71));
-    state.make_action(Action::SetMove(PieceType::ANT, 57));
-    state.make_action(Action::DragMove(PieceType::ANT, 60, 25));
-    state.make_action(Action::SetMove(PieceType::SPIDER, 23));
-    state.make_action(Action::SetMove(PieceType::GRASSHOPPER, 60));
-    state.make_action(Action::DragMove(PieceType::ANT, 57, 82));
-    state.make_action(Action::DragMove(PieceType::BEETLE, 70, 59));
-    state.make_action(Action::DragMove(PieceType::BEETLE, 46, 58));
-    state.make_action(Action::DragMove(PieceType::BEETLE, 59, 47));
-    state.make_action(Action::DragMove(PieceType::BEETLE, 58, 59));
-    state.make_action(Action::DragMove(PieceType::GRASSHOPPER, 60, 58));
-    state.make_action(Action::SetMove(PieceType::GRASSHOPPER, 81));
-    state.make_action(Action::SetMove(PieceType::ANT, 57));
-    println!("{}", state);
+    let state = GameState::from_fen("20 RED 19807040637789456435240771584 576460752303423488 0 0 0 140737488355328 0 0 0 34359738368 4835703278458585418301440 140737488355328 2417851639229258349412352 8388608 2361183241434822606848 144115188109410304 0 288230376151711744 576460752303423488".to_owned());
     let now = Instant::now();
     let nodes = state.perft(3);
     let time_elapsed = now.elapsed().as_micros();
@@ -39,5 +19,7 @@ fn main() {
         nodes,
         nps
     );
-    println!("{}", state);
+    for i in 0..6 {
+        println!("{}", state.perft(i));
+    }
 }

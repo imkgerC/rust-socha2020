@@ -45,6 +45,102 @@ pub struct GameState {
     pub hash: u64,
 }
 impl GameState {
+    pub fn to_fen(&self) -> String {
+        let mut fen = String::new();
+        fen.push_str(&format!(
+            "{} {:?} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
+            self.ply,
+            self.color_to_move,
+            self.obstacles,
+            self.beetle_stack[0][0],
+            self.beetle_stack[1][0],
+            self.beetle_stack[2][0],
+            self.beetle_stack[3][0],
+            self.beetle_stack[0][1],
+            self.beetle_stack[1][1],
+            self.beetle_stack[2][1],
+            self.beetle_stack[3][1],
+            self.pieces[0][0],
+            self.pieces[1][0],
+            self.pieces[2][0],
+            self.pieces[3][0],
+            self.pieces[4][0],
+            self.pieces[0][1],
+            self.pieces[1][1],
+            self.pieces[2][1],
+            self.pieces[3][1],
+            self.pieces[4][1]
+        ));
+        fen
+    }
+    pub fn from_fen(fen: String) -> GameState {
+        let mut entries: Vec<&str> = fen.split(" ").collect();
+        assert_eq!(entries.len(), 21);
+        let ply = entries.remove(0).parse::<u8>().unwrap();
+        let color_to_move = match entries.remove(0) {
+            "red" | "RED" => RED,
+            "blue" | "BLUE" => BLUE,
+            _ => panic!("Invalid Color"),
+        };
+        let obstacles = entries.remove(0).parse::<u128>().unwrap();
+        let mut beetle_stack = [[0u128; 2]; 4];
+        for i in 0..2 {
+            for j in 0..4 {
+                beetle_stack[j][i] = entries.remove(0).parse::<u128>().unwrap();
+            }
+        }
+        let mut pieces = [[0u128; 2]; 5];
+        for i in 0..2 {
+            for j in 0..5 {
+                pieces[j][i] = entries.remove(0).parse::<u128>().unwrap();
+            }
+        }
+        let hash = GameState::calculate_hash(&pieces, color_to_move, &beetle_stack);
+        let mut occupied = [0u128; 2];
+        for index in 0..128 {
+            if (beetle_stack[0][RED as usize] | beetle_stack[0][BLUE as usize]) & 1u128 << index > 0
+            {
+                let mut i: isize = 3;
+                while i >= 0 {
+                    if beetle_stack[i as usize][RED as usize] & 1u128 << index > 0 {
+                        occupied[RED as usize] |= 1u128 << index;
+                    } else if beetle_stack[i as usize][BLUE as usize] & 1u128 << index > 0 {
+                        occupied[BLUE as usize] |= 1u128 << index;
+                    }
+                    i -= 1;
+                }
+            } else {
+                if (pieces[0][RED as usize]
+                    | pieces[1][RED as usize]
+                    | pieces[2][RED as usize]
+                    | pieces[3][RED as usize]
+                    | pieces[4][RED as usize])
+                    & 1u128 << index
+                    > 0
+                {
+                    occupied[RED as usize] ^= 1u128 << index
+                } else if (pieces[0][BLUE as usize]
+                    | pieces[1][BLUE as usize]
+                    | pieces[2][BLUE as usize]
+                    | pieces[3][BLUE as usize]
+                    | pieces[4][BLUE as usize])
+                    & 1u128 << index
+                    > 0
+                {
+                    occupied[BLUE as usize] ^= 1u128 << index;
+                }
+            }
+        }
+        GameState {
+            ply,
+            color_to_move,
+            pieces,
+            occupied,
+            hash,
+            beetle_stack,
+            obstacles,
+        }
+    }
     pub fn new() -> GameState {
         let pieces = [[0u128; 2]; 5];
         let beetle_stack = [[0u128; 2]; 4];
