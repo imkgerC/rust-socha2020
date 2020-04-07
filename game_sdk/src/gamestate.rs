@@ -126,100 +126,108 @@ impl GameState {
         (1u128 << index) & self.beetle_stack[0][color as usize] != 0
     }
 
-    pub fn make_action(&self, action: Action) -> GameState {
-        let mut pieces = self.pieces.clone();
-        let mut occupied = self.occupied.clone();
-        let mut beetle_stack = self.beetle_stack.clone();
-        let mut hash = self.hash ^ COLOR_TO_MOVE_HASH;
+    #[inline(always)]
+    pub fn make_action(&mut self, action: Action) {
         match action {
             Action::SkipMove => {}
             Action::DragMove(piece_type, from, to) => {
                 if piece_type != PieceType::BEETLE {
                     // unset field
                     debug_assert!(
-                        pieces[piece_type as usize][self.color_to_move as usize] & (1 << from) > 0
+                        self.pieces[piece_type as usize][self.color_to_move as usize] & (1 << from)
+                            > 0
                     );
-                    debug_assert!(occupied[self.color_to_move as usize] & (1 << from) > 0);
-                    pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << from;
-                    occupied[self.color_to_move as usize] ^= 1 << from;
-                    hash ^=
+                    debug_assert!(self.occupied[self.color_to_move as usize] & (1 << from) > 0);
+                    self.pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << from;
+                    self.occupied[self.color_to_move as usize] ^= 1 << from;
+                    self.hash ^=
                         PIECE_HASH[piece_type as usize][self.color_to_move as usize][from as usize];
                     // set field
                     debug_assert!(
-                        pieces[piece_type as usize][self.color_to_move as usize] & (1 << to) == 0
+                        self.pieces[piece_type as usize][self.color_to_move as usize] & (1 << to)
+                            == 0
                     );
                     debug_assert!((self.occupied() | self.obstacles) & (1 << to) == 0);
-                    pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << to;
-                    occupied[self.color_to_move as usize] ^= 1 << to;
-                    hash ^=
+                    self.pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << to;
+                    self.occupied[self.color_to_move as usize] ^= 1 << to;
+                    self.hash ^=
                         PIECE_HASH[piece_type as usize][self.color_to_move as usize][to as usize];
                 } else {
                     let from_bit = 1 << from;
                     if self.is_on_stack(from as usize) {
                         let mut index = 3;
                         while index > 0 {
-                            if beetle_stack[index][self.color_to_move as usize] & from_bit > 0 {
-                                beetle_stack[index][self.color_to_move as usize] ^= from_bit;
-                                hash ^= BEETLE_STACK_HASH[index][self.color_to_move as usize]
+                            if self.beetle_stack[index][self.color_to_move as usize] & from_bit > 0
+                            {
+                                self.beetle_stack[index][self.color_to_move as usize] ^= from_bit;
+                                self.hash ^= BEETLE_STACK_HASH[index][self.color_to_move as usize]
                                     [from as usize];
-                                if beetle_stack[index - 1][self.color_to_move as usize] & from_bit
+                                if self.beetle_stack[index - 1][self.color_to_move as usize]
+                                    & from_bit
                                     == 0
                                 {
                                     // enemy beetle under ours, swap occupancy
                                     debug_assert!(
-                                        (occupied[self.color_to_move as usize] & from_bit)
+                                        (self.occupied[self.color_to_move as usize] & from_bit)
                                             .count_ones()
                                             == 1
                                     );
                                     debug_assert!(
-                                        occupied[self.color_to_move.swap() as usize] & from_bit
+                                        self.occupied[self.color_to_move.swap() as usize]
+                                            & from_bit
                                             == 0
                                     );
-                                    occupied[self.color_to_move as usize] ^= from_bit;
-                                    occupied[self.color_to_move.swap() as usize] ^= from_bit;
+                                    self.occupied[self.color_to_move as usize] ^= from_bit;
+                                    self.occupied[self.color_to_move.swap() as usize] ^= from_bit;
                                 }
                                 break;
                             }
                             debug_assert!(
-                                beetle_stack[index][self.color_to_move.swap() as usize] & from_bit
+                                self.beetle_stack[index][self.color_to_move.swap() as usize]
+                                    & from_bit
                                     == 0
                             ); //Make sure our beetle is actually on top of the stack
                             index -= 1;
                         }
                         if index == 0 {
                             debug_assert!(
-                                (beetle_stack[0][self.color_to_move as usize] & from_bit)
+                                (self.beetle_stack[0][self.color_to_move as usize] & from_bit)
                                     .count_ones()
                                     == 1
                             );
-                            beetle_stack[0][self.color_to_move as usize] ^= from_bit;
-                            hash ^=
+                            self.beetle_stack[0][self.color_to_move as usize] ^= from_bit;
+                            self.hash ^=
                                 BEETLE_STACK_HASH[0][self.color_to_move as usize][from as usize];
                             let own_piece =
                                 self.pieces_from_color(self.color_to_move) & from_bit == from_bit;
                             if !own_piece {
                                 // swap occupancy as an enemy piece is now set on this field
                                 debug_assert!(
-                                    occupied[self.color_to_move as usize] & from_bit == from_bit
+                                    self.occupied[self.color_to_move as usize] & from_bit
+                                        == from_bit
                                 );
                                 debug_assert!(
-                                    occupied[self.color_to_move.swap() as usize] & from_bit == 0
+                                    self.occupied[self.color_to_move.swap() as usize] & from_bit
+                                        == 0
                                 );
-                                occupied[self.color_to_move as usize] ^= from_bit;
-                                occupied[self.color_to_move.swap() as usize] ^= from_bit;
+                                self.occupied[self.color_to_move as usize] ^= from_bit;
+                                self.occupied[self.color_to_move.swap() as usize] ^= from_bit;
                             }
                         }
                     } else {
                         debug_assert!(
-                            pieces[PieceType::BEETLE as usize][self.color_to_move as usize]
+                            self.pieces[PieceType::BEETLE as usize][self.color_to_move as usize]
                                 & from_bit
                                 == from_bit
                         );
-                        debug_assert!(occupied[self.color_to_move as usize] & from_bit == from_bit);
-                        pieces[PieceType::BEETLE as usize][self.color_to_move as usize] ^= from_bit;
-                        occupied[self.color_to_move as usize] ^= from_bit;
-                        hash ^= PIECE_HASH[PieceType::BEETLE as usize][self.color_to_move as usize]
-                            [from as usize];
+                        debug_assert!(
+                            self.occupied[self.color_to_move as usize] & from_bit == from_bit
+                        );
+                        self.pieces[PieceType::BEETLE as usize][self.color_to_move as usize] ^=
+                            from_bit;
+                        self.occupied[self.color_to_move as usize] ^= from_bit;
+                        self.hash ^= PIECE_HASH[PieceType::BEETLE as usize]
+                            [self.color_to_move as usize][from as usize];
                     }
 
                     let to_bit = 1 << to;
@@ -227,17 +235,17 @@ impl GameState {
                         //Set on stack
                         // set correct occupancy
                         //We don't know what color we are sitting on
-                        occupied[self.color_to_move.swap() as usize] &= !to_bit;
-                        occupied[self.color_to_move as usize] |= to_bit;
+                        self.occupied[self.color_to_move.swap() as usize] &= !to_bit;
+                        self.occupied[self.color_to_move as usize] |= to_bit;
 
                         for index in 0..4 {
-                            if (beetle_stack[index][RED as usize]
-                                | beetle_stack[index][BLUE as usize])
+                            if (self.beetle_stack[index][RED as usize]
+                                | self.beetle_stack[index][BLUE as usize])
                                 & to_bit
                                 == 0
                             {
-                                beetle_stack[index][self.color_to_move as usize] ^= to_bit;
-                                hash ^= BEETLE_STACK_HASH[index][self.color_to_move as usize]
+                                self.beetle_stack[index][self.color_to_move as usize] ^= to_bit;
+                                self.hash ^= BEETLE_STACK_HASH[index][self.color_to_move as usize]
                                     [to as usize];
                                 break;
                             }
@@ -245,41 +253,68 @@ impl GameState {
                     } else {
                         //Normal move
                         debug_assert!(
-                            pieces[PieceType::BEETLE as usize][self.color_to_move as usize]
+                            self.pieces[PieceType::BEETLE as usize][self.color_to_move as usize]
                                 & to_bit
                                 == 0
                         );
-                        debug_assert!(occupied[self.color_to_move as usize] & to_bit == 0);
-                        pieces[PieceType::BEETLE as usize][self.color_to_move as usize] ^= to_bit;
-                        occupied[self.color_to_move as usize] ^= to_bit;
-                        hash ^= PIECE_HASH[PieceType::BEETLE as usize][self.color_to_move as usize]
-                            [to as usize];
+                        debug_assert!(self.occupied[self.color_to_move as usize] & to_bit == 0);
+                        self.pieces[PieceType::BEETLE as usize][self.color_to_move as usize] ^=
+                            to_bit;
+                        self.occupied[self.color_to_move as usize] ^= to_bit;
+                        self.hash ^= PIECE_HASH[PieceType::BEETLE as usize]
+                            [self.color_to_move as usize][to as usize];
                     }
                 }
             }
             Action::SetMove(piece_type, to) => {
                 debug_assert!((self.occupied() | self.obstacles) & (1 << to) == 0);
-                pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << to;
-                occupied[self.color_to_move as usize] ^= 1 << to;
-                hash ^= PIECE_HASH[piece_type as usize][self.color_to_move as usize][to as usize];
+                self.pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << to;
+                self.occupied[self.color_to_move as usize] ^= 1 << to;
+                self.hash ^=
+                    PIECE_HASH[piece_type as usize][self.color_to_move as usize][to as usize];
             }
         };
-        let res = GameState {
-            ply: self.ply + 1,
-            color_to_move: self.color_to_move.swap(),
-            occupied,
-            pieces,
-            beetle_stack,
-            obstacles: self.obstacles,
-            hash,
-        };
+        self.ply += 1;
+        self.color_to_move = self.color_to_move.swap();
+        self.hash ^= COLOR_TO_MOVE_HASH;
         debug_assert_eq!(
-            res.hash,
-            GameState::calculate_hash(&res.pieces, res.color_to_move, &res.beetle_stack)
+            self.hash,
+            GameState::calculate_hash(&self.pieces, self.color_to_move, &self.beetle_stack)
         );
-        res
     }
 
+    pub fn unmake_action(&mut self, action: Action) {
+        self.color_to_move = self.color_to_move.swap();
+        self.hash ^= COLOR_TO_MOVE_HASH;
+        match action {
+            Action::SkipMove => {}
+            Action::DragMove(piece_type, from, to) => {
+                self.ply -= 1;
+                self.make_action(Action::DragMove(piece_type, to, from));
+                self.hash ^= COLOR_TO_MOVE_HASH;
+                self.color_to_move = self.color_to_move.swap();
+            }
+            Action::SetMove(piece_type, to) => {
+                debug_assert!(
+                    ((self.pieces[piece_type as usize][self.color_to_move as usize]) & (1 << to))
+                        .count_ones()
+                        == 1
+                );
+                debug_assert!(
+                    ((self.occupied[self.color_to_move as usize]) & (1 << to)).count_ones() == 1
+                );
+                self.pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << to;
+                self.occupied[self.color_to_move as usize] ^= 1 << to;
+                self.hash ^=
+                    PIECE_HASH[piece_type as usize][self.color_to_move as usize][to as usize];
+            }
+        };
+        self.ply -= 1;
+        debug_assert_eq!(
+            self.hash,
+            GameState::calculate_hash(&self.pieces, self.color_to_move, &self.beetle_stack)
+        );
+    }
     pub fn perft_div(&self, depth: usize) -> u64 {
         self.iperft_root(depth, true)
     }
@@ -295,22 +330,24 @@ impl GameState {
         if is_game_finished(self) {
             return 1;
         }
+        let mut state = self.clone();
         let mut als = ActionListStack::with_size(depth + 1);
         calculate_legal_moves(self, &mut als[depth]);
         let mut nc = 0u64;
         for i in 0..als[depth].size {
             let action = als[depth][i];
-            let next_state = self.make_action(action);
-            let n = next_state.iperft(depth - 1, &mut als);
+            state.make_action(action);
+            let n = state.iperft(depth - 1, &mut als);
             if print {
                 println!("{:?}: {}", action, n);
             }
+            state.unmake_action(action);
             nc += n;
         }
         nc
     }
 
-    fn iperft(&self, depth: usize, als: &mut ActionListStack) -> u64 {
+    fn iperft(&mut self, depth: usize, als: &mut ActionListStack) -> u64 {
         if depth == 0 {
             return 1;
         }
@@ -320,8 +357,9 @@ impl GameState {
         calculate_legal_moves(self, &mut als[depth]);
         let mut nc = 0u64;
         for i in 0..als[depth].size {
-            let next_state = self.make_action(als[depth][i]);
-            nc += next_state.iperft(depth - 1, als);
+            self.make_action(als[depth][i]);
+            nc += self.iperft(depth - 1, als);
+            self.unmake_action(als[depth][i]);
         }
         nc
     }
