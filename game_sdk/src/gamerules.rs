@@ -269,7 +269,7 @@ fn append_spider_destinations(
     occupied: u128,
     obstacles: u128,
     current_field: u128,
-    mut current_path: u128,
+    current_path: u128,
     to_go: u8,
 ) {
     let mut candidates = get_accessible_neighbours(occupied, obstacles, current_field);
@@ -282,16 +282,14 @@ fn append_spider_destinations(
         let current = candidates.trailing_zeros();
         let current_field = 1 << current;
         candidates ^= current_field;
-        current_path ^= current_field;
         append_spider_destinations(
             destinations,
             occupied,
             obstacles,
             current_field,
-            current_path,
+            current_path ^ current_field,
             to_go - 1,
         );
-        current_path ^= current_field;
     }
 }
 
