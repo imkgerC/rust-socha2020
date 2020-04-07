@@ -13,7 +13,7 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
         while valid_fields > 0 {
             let to = valid_fields.trailing_zeros();
             valid_fields ^= 1 << to;
-            for piece_type in &crate::piece_type::VARIANTS {
+            for piece_type in &crate::piece_type::PIECETYPE_VARIANTS {
                 actionlist.push(Action::SetMove(*piece_type, to as u8));
             }
         }
@@ -28,7 +28,7 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
         while valid_fields > 0 {
             let to = valid_fields.trailing_zeros();
             valid_fields ^= 1 << to;
-            for piece_type in &crate::piece_type::VARIANTS {
+            for piece_type in &crate::piece_type::PIECETYPE_VARIANTS {
                 actionlist.push(Action::SetMove(*piece_type, to as u8));
             }
         }

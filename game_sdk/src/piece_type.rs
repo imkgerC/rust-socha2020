@@ -19,7 +19,7 @@ impl PieceType {
     }
 }
 
-pub static VARIANTS: [PieceType; 5] = [
+pub static PIECETYPE_VARIANTS: [PieceType; 5] = [
     PieceType::BEE,
     PieceType::BEETLE,
     PieceType::ANT,
