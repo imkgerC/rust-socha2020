@@ -3,7 +3,7 @@ use crate::actionlist::ActionList;
 use crate::bitboard;
 use crate::gamestate::Color;
 use crate::gamestate::GameState;
-use crate::neighbor_magic::get_accessible_neighbors_slow;
+use crate::neighbor_magic::get_accessible_neighbors;
 use crate::piece_type::PieceType;
 
 pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
@@ -133,7 +133,7 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
             > 0
         {
             // bee move generation
-            let mut valid = get_accessible_neighbors_slow(occupied, game_state.obstacles, from_bit);
+            let mut valid = get_accessible_neighbors(occupied, game_state.obstacles, from_bit);
             while valid > 0 {
                 let to = valid.trailing_zeros() as u8;
                 valid ^= 1 << to;
@@ -253,14 +253,13 @@ fn get_grasshopper_destinations(occupied: u128, obstacles: u128, from: u128) -> 
 }
 
 fn get_ant_destinations(occupied: u128, obstacles: u128, current_field: u128) -> u128 {
-    let mut candidates = get_accessible_neighbors_slow(occupied, obstacles, current_field);
+    let mut candidates = get_accessible_neighbors(occupied, obstacles, current_field);
     let mut destinations = candidates;
     while candidates > 0 {
         let current = candidates.trailing_zeros();
         let current_field = 1 << current;
         candidates ^= current_field;
-        candidates |=
-            get_accessible_neighbors_slow(occupied, obstacles, current_field) & !destinations;
+        candidates |= get_accessible_neighbors(occupied, obstacles, current_field) & !destinations;
         destinations |= candidates;
     }
     return destinations & !current_field;
@@ -274,7 +273,7 @@ fn append_spider_destinations(
     current_path: u128,
     to_go: u8,
 ) {
-    let mut candidates = get_accessible_neighbors_slow(occupied, obstacles, current_field);
+    let mut candidates = get_accessible_neighbors(occupied, obstacles, current_field);
     candidates &= !current_path;
     if to_go == 1 {
         *destinations |= candidates;

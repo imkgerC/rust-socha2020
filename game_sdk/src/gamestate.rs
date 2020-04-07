@@ -229,6 +229,11 @@ impl GameState {
         (1u128 << index) & self.beetle_stack[0][color as usize] != 0
     }
 
+    pub fn bb_to_string(bb: u128) -> String {
+        let mut state = GameState::new();
+        state.obstacles = bb;
+        format!("{}", state)
+    }
     #[inline(always)]
     pub fn make_action(&mut self, action: Action) {
         match action {
