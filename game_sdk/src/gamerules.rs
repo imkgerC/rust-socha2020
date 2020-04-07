@@ -13,7 +13,7 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
         while valid_fields > 0 {
             let to = valid_fields.trailing_zeros();
             valid_fields ^= 1 << to;
-            for piece_type in &crate::piece_type::VARIANTS {
+            for piece_type in &crate::piece_type::PIECETYPE_VARIANTS {
                 actionlist.push(Action::SetMove(*piece_type, to as u8));
             }
         }
@@ -28,7 +28,7 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
         while valid_fields > 0 {
             let to = valid_fields.trailing_zeros();
             valid_fields ^= 1 << to;
-            for piece_type in &crate::piece_type::VARIANTS {
+            for piece_type in &crate::piece_type::PIECETYPE_VARIANTS {
                 actionlist.push(Action::SetMove(*piece_type, to as u8));
             }
         }
@@ -39,11 +39,8 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
         bitboard::get_neighbours(game_state.occupied[game_state.color_to_move as usize]);
     let next_to_other =
         bitboard::get_neighbours(game_state.occupied[game_state.color_to_move.swap() as usize]);
-    let mut valid_set_destinations = next_to_own
-        & !(next_to_other
-            | game_state.obstacles
-            | game_state.occupied[Color::RED as usize]
-            | game_state.occupied[Color::BLUE as usize]);
+    let mut valid_set_destinations =
+        next_to_own & !(next_to_other | game_state.obstacles | game_state.occupied());
 
     if game_state.must_player_place_bee() {
         // only bee SetMoves
