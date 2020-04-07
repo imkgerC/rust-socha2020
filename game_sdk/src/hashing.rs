@@ -1,5 +1,5 @@
 use rand::{prelude::StdRng, Rng};
-use std::fmt::{Debug, Formatter, Result};
+use std::fmt::{Debug, Display, Formatter, Result};
 pub struct HashKeys {
     pieces: [[[u64; 121]; 2]; 5],
     beetle_stack: [[[u64; 121]; 2]; 4],
@@ -44,11 +44,11 @@ impl HashKeys {
             color_to_move,
         }
     }
-    pub(crate) fn arr_to_string(arr: &[u64]) -> String {
+    pub(crate) fn arr_to_string<T: Display>(arr: &[T], type_str: &str) -> String {
         let mut res_str: String = String::new();
         res_str.push_str("[");
         for i in arr {
-            res_str.push_str(&format!("{}u64, ", *i));
+            res_str.push_str(&format!("{}{}, ", *i, type_str));
         }
         res_str.push_str("]");
         res_str
@@ -62,7 +62,7 @@ impl Debug for HashKeys {
         for i in self.pieces.iter() {
             piece_hash_str.push_str("[");
             for j in i.iter() {
-                piece_hash_str.push_str(&HashKeys::arr_to_string(j));
+                piece_hash_str.push_str(&HashKeys::arr_to_string(j, "u64"));
                 piece_hash_str.push_str(", ");
             }
             piece_hash_str.push_str("], ");
@@ -73,7 +73,7 @@ impl Debug for HashKeys {
         for i in self.beetle_stack.iter() {
             beetle_stack_str.push_str("[");
             for j in i.iter() {
-                beetle_stack_str.push_str(&HashKeys::arr_to_string(j));
+                beetle_stack_str.push_str(&HashKeys::arr_to_string(j, "u64"));
                 beetle_stack_str.push_str(", ");
             }
             beetle_stack_str.push_str("], ");

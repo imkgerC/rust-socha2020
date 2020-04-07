@@ -5,9 +5,9 @@ mod bitboard;
 mod fieldtype;
 pub mod gamerules;
 mod gamestate;
-mod hashing;
+pub(crate) mod hashing;
+pub mod neighbor_magic;
 mod piece_type;
-
 pub use action::Action;
 pub use actionlist::ActionList;
 pub use gamestate::Color;

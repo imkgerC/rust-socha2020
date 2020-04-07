@@ -1,9 +1,11 @@
 extern crate game_sdk;
+use game_sdk::neighbor_magic::generate_magic;
 use game_sdk::{Action, GameState, HashKeys, PieceType};
 use std::time::Instant;
 
 fn main() {
     // Do some perft testing
+    generate_magic();
     let mut state = GameState::new();
     state.obstacles |= (1u128 << 13) | (1u128 << 63) | (1u128 << 94);
     state.make_action(Action::SetMove(PieceType::BEETLE, 47));
@@ -28,7 +30,7 @@ fn main() {
     state.make_action(Action::SetMove(PieceType::ANT, 57));
     println!("{}", state);
     let now = Instant::now();
-    let nodes = state.perft(6);
+    let nodes = state.perft(3);
     let time_elapsed = now.elapsed().as_micros();
     let nps = (1000 * nodes) as f64 / time_elapsed as f64;
     println!(
