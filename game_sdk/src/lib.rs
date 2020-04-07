@@ -17,9 +17,23 @@ pub use piece_type::PieceType;
 
 #[cfg(test)]
 mod tests {
+    use crate::GameState;
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn perftsuite() {
+        let perft_contents = std::fs::read_to_string("../perft_values").unwrap();
+        let lines: Vec<&str> = perft_contents.split("\n").collect();
+        for line in lines {
+            let s: Vec<&str> = line.split("/").collect();
+            let fen = s[0];
+            let perfts: Vec<&str> = s[1].split(" ").collect();
+            let state = GameState::from_fen(fen.to_owned());
+            for perft in perfts.iter().enumerate() {
+                let depth = perft.0 + 1;
+                let value = perft.1.parse::<u64>().unwrap();
+                assert_eq!(state.perft(depth), value)
+            }
+        }
     }
 }
 

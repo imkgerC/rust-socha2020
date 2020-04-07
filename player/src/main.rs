@@ -19,7 +19,7 @@ fn main() {
         nodes,
         nps
     );
-    for i in 0..6 {
-        println!("{}", state.perft(i));
+    for i in 0..5 {
+        println!("{}", state.perft(i + 1));
     }
 }
