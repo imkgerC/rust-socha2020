@@ -23,6 +23,13 @@ impl Color {
             BLUE => RED,
         }
     }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Color::RED => "RED".to_string(),
+            Color::BLUE => "BLUE".to_string(),
+        }
+    }
 }
 
 #[derive(Clone)]

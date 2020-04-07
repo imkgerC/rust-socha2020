@@ -1,7 +1,8 @@
 [workspace]
 members = ["player",
            "game_sdk",
-           "referee"]
+           "referee",
+           "xml_client"]
 
 [profile.release]
 opt-level = 3
