@@ -131,7 +131,7 @@ def gen_from_to_const(src, dest):
     name = f"SHIFT_{src.upper()}_TO_{dest.upper()}_MASK"
     first_shift = f"<< {shifts[first]}" if shifts[first] > 0 else f">> {-shifts[first]}"
     second_shift = f"<< {shifts[second]}" if shifts[second] > 0 else f">> {-shifts[second]}"
-    calculation = f"((!SHIFT_{second.upper()}_MASK {second_shift}) & !SHIFT_{first.upper()}_MASK) {first_shift}"
+    calculation = f"((!SHIFT_{first.upper()}_MASK {first_shift}) & !SHIFT_{second.upper()}_MASK) {second_shift}"
     return f"pub const {name}: u128 = {calculation};"
 
 def gen_from_to(src, dest):
