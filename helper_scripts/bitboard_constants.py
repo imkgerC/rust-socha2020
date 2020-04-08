@@ -162,14 +162,6 @@ def main():
     print_val("SHIFT_WEST_MASK", mask_shift_west(), gen_code)
     print_val("SHIFT_EAST_UNSAFE_MASK", mask_shift_unsafe_east(), gen_code)
     print_val("SHIFT_WEST_UNSAFE_MASK", mask_shift_unsafe_west(), gen_code)
-    for src in directions:
-        for dest in directions:
-            if not src is dest:
-                print(gen_from_to_const(src, dest))
-    for src in directions:
-        for dest in directions:
-            if not src is dest:
-                print(gen_from_to(src, dest))
 
 if __name__ == "__main__":
     main()
