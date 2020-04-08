@@ -77,11 +77,11 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
         allowed.push(PieceType::GRASSHOPPER);
     }
     if (game_state.pieces[PieceType::BEETLE as usize][game_state.color_to_move as usize]
-        | game_state.beetle_stack[0][game_state.color_to_move as usize]
-        | game_state.beetle_stack[1][game_state.color_to_move as usize]
-        | game_state.beetle_stack[2][game_state.color_to_move as usize]
-        | game_state.beetle_stack[3][game_state.color_to_move as usize])
         .count_ones()
+        + game_state.beetle_stack[0][game_state.color_to_move as usize].count_ones()
+        + game_state.beetle_stack[1][game_state.color_to_move as usize].count_ones()
+        + game_state.beetle_stack[2][game_state.color_to_move as usize].count_ones()
+        + game_state.beetle_stack[3][game_state.color_to_move as usize].count_ones())
         < 2
     {
         allowed.push(PieceType::BEETLE);

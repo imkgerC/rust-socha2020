@@ -33,6 +33,7 @@ impl Searcher {
     }
 
     pub fn search_move(&mut self, game_state: &GameState, tc: Timecontrol) -> Action {
+        println!("Searching state w/ fen:{}", game_state.to_fen());
         let mut game_state = game_state.clone();
         self.nodes_searched = 0;
         self.start_time = Some(Instant::now());
@@ -40,7 +41,7 @@ impl Searcher {
         self.principal_variation_hashtable.clear();
         self.stop_flag = false;
         let mut score = STANDARD_SCORE;
-        for depth in 1.. {
+        for depth in 1..61 {
             let new_score = principal_variation_search(
                 self,
                 &mut game_state,
