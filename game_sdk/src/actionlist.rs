@@ -1,4 +1,5 @@
 use crate::action::Action;
+use std::fmt::{Debug, Formatter, Result};
 use std::ops::{Index, IndexMut};
 
 pub const MAX_ACTIONS: usize = 455; //TODO OBSTACLES
@@ -10,6 +11,21 @@ pub struct ActionList {
 }
 
 impl ActionList {
+    pub fn find_action(&self, action: Action) -> Option<usize> {
+        for i in 0..self.size {
+            if self.actions[i] == action {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    pub fn swap(&mut self, a: usize, b: usize) {
+        let at_a = self[a];
+        self.actions[a] = self[b];
+        self.actions[b] = at_a;
+    }
+
     #[inline(always)]
     pub fn has_action(&self, index: usize) -> bool {
         index < self.size
@@ -18,6 +34,10 @@ impl ActionList {
     pub fn push(&mut self, action: Action) {
         self.actions[self.size] = action;
         self.size += 1;
+    }
+
+    pub fn clear(&mut self) {
+        self.size = 0;
     }
 }
 impl Index<usize> for ActionList {
@@ -44,7 +64,11 @@ impl Default for ActionList {
         ActionList { actions, size: 0 }
     }
 }
-
+impl Debug for ActionList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{:?}", self.actions[0..self.size].to_vec())
+    }
+}
 pub struct ActionListStack {
     pub action_lists: Vec<ActionList>,
 }

@@ -92,10 +92,17 @@ impl XMLNode {
             .expect(err);
         let (occupied, obstacles, pieces, beetle_stack) =
             self.get_child("board").expect(err).as_board();
+        state.color_to_move = if state.ply % 2 == 0 {
+            Color::RED
+        } else {
+            Color::BLUE
+        };
         state.occupied = occupied;
         state.obstacles = obstacles;
         state.pieces = pieces;
         state.beetle_stack = beetle_stack;
+        state.hash =
+            GameState::calculate_hash(&state.pieces, state.color_to_move, &state.beetle_stack);
         return state;
     }
 

@@ -1,6 +1,6 @@
 use super::bitboard;
 use crate::bitboard::constants::VALID_FIELDS;
-use crate::{GameState, HashKeys};
+use crate::HashKeys;
 use rand::RngCore;
 
 pub const NEIGHBOR_MAGIC: u64 = 10525554454693953600u64;

@@ -1,7 +1,9 @@
 use crate::action::Action;
 use crate::actionlist::ActionList;
 use crate::bitboard;
+use crate::bitboard::get_neighbours;
 use crate::gamestate::Color;
+use crate::gamestate::Color::{BLUE, RED};
 use crate::gamestate::GameState;
 use crate::neighbor_magic::get_accessible_neighbors;
 use crate::piece_type::PieceType;
@@ -74,7 +76,12 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
     {
         allowed.push(PieceType::GRASSHOPPER);
     }
-    if game_state.pieces[PieceType::BEETLE as usize][game_state.color_to_move as usize].count_ones()
+    if (game_state.pieces[PieceType::BEETLE as usize][game_state.color_to_move as usize]
+        | game_state.beetle_stack[0][game_state.color_to_move as usize]
+        | game_state.beetle_stack[1][game_state.color_to_move as usize]
+        | game_state.beetle_stack[2][game_state.color_to_move as usize]
+        | game_state.beetle_stack[3][game_state.color_to_move as usize])
+        .count_ones()
         < 2
     {
         allowed.push(PieceType::BEETLE);
@@ -350,6 +357,26 @@ fn are_connected_in_swarm(occupied: u128, to_check: u128) -> bool {
         }
     }
     return false;
+}
+
+pub fn get_result(game_state: &GameState) -> Option<Color> {
+    let red_neighbor_count =
+        (get_neighbours(game_state.pieces[PieceType::BEE as usize][RED as usize])
+            & !game_state.occupied()
+            & !game_state.obstacles)
+            .count_ones();
+    let blue_neighbor_count =
+        (get_neighbours(game_state.pieces[PieceType::BEE as usize][BLUE as usize])
+            & !game_state.occupied()
+            & !game_state.obstacles)
+            .count_ones();
+    if red_neighbor_count > blue_neighbor_count {
+        Some(RED)
+    } else if blue_neighbor_count > red_neighbor_count {
+        Some(BLUE)
+    } else {
+        None
+    }
 }
 
 pub fn is_game_finished(game_state: &GameState) -> bool {

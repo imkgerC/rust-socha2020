@@ -1,7 +1,7 @@
 extern crate rand;
 mod action;
-mod actionlist;
-mod bitboard;
+pub mod actionlist;
+pub mod bitboard;
 mod fieldtype;
 pub mod gamerules;
 mod gamestate;
@@ -22,6 +22,7 @@ mod tests {
     #[test]
     fn perftsuite() {
         let perft_contents = std::fs::read_to_string("../perft_values").unwrap();
+        let perft_contents = perft_contents.replace("\r", "");
         let lines: Vec<&str> = perft_contents.split("\n").collect();
         for line in lines {
             let s: Vec<&str> = line.split("/").collect();

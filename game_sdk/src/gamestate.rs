@@ -155,7 +155,7 @@ impl GameState {
             hash,
         }
     }
-    pub(crate) fn calculate_hash(
+    pub fn calculate_hash(
         pieces: &[[u128; 2]; 5],
         color_to_move: Color,
         beetle_stack: &[[u128; 2]; 4],

@@ -1,7 +1,9 @@
+extern crate player;
 mod xml_client;
 mod xml_utils;
 
 use argparse::{ArgumentParser, Store};
+use player::search::Searcher;
 use xml_client::XMLClient;
 
 fn main() {
@@ -26,9 +28,8 @@ fn main() {
         host, port, reservation
     );
     let mut client = XMLClient::new();
-
     // Insert custom client listener here:
-    // client.add_listener(Box::new(Player::new(None,-1)));
+    client.add_listener(Box::new(Searcher::new()));
 
     client.run(&(host + ":" + port.as_str()), &reservation);
 }
