@@ -106,15 +106,15 @@ pub const fn shift_west_to_nowe(bitboard: u128) -> u128 {
 }
 #[inline(always)]
 pub const fn shift_west_to_soea(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_WEST_TO_SOEA_MASK) >> -10;
+    return (bitboard & !constants::SHIFT_WEST_TO_SOEA_MASK) >> 10;
 }
 #[inline(always)]
 pub const fn shift_west_to_sowe(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_WEST_TO_SOWE_MASK) >> -11;
+    return (bitboard & !constants::SHIFT_WEST_TO_SOWE_MASK) >> 11;
 }
 #[inline(always)]
 pub const fn shift_east_to_west(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_EAST_TO_WEST_MASK) >> -2;
+    return (bitboard & !constants::SHIFT_EAST_TO_WEST_MASK) >> 2;
 }
 #[inline(always)]
 pub const fn shift_east_to_noea(bitboard: u128) -> u128 {
@@ -126,39 +126,39 @@ pub const fn shift_east_to_nowe(bitboard: u128) -> u128 {
 }
 #[inline(always)]
 pub const fn shift_east_to_soea(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_EAST_TO_SOEA_MASK) >> -12;
+    return (bitboard & !constants::SHIFT_EAST_TO_SOEA_MASK) >> 12;
 }
 #[inline(always)]
 pub const fn shift_east_to_sowe(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_EAST_TO_SOWE_MASK) >> -13;
+    return (bitboard & !constants::SHIFT_EAST_TO_SOWE_MASK) >> 13;
 }
 #[inline(always)]
 pub const fn shift_noea_to_west(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_NOEA_TO_WEST_MASK) >> -13;
+    return (bitboard & !constants::SHIFT_NOEA_TO_WEST_MASK) >> 13;
 }
 #[inline(always)]
 pub const fn shift_noea_to_east(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_NOEA_TO_EAST_MASK) >> -11;
+    return (bitboard & !constants::SHIFT_NOEA_TO_EAST_MASK) >> 11;
 }
 #[inline(always)]
 pub const fn shift_noea_to_nowe(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_NOEA_TO_NOWE_MASK) >> -1;
+    return (bitboard & !constants::SHIFT_NOEA_TO_NOWE_MASK) >> 1;
 }
 #[inline(always)]
 pub const fn shift_noea_to_soea(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_NOEA_TO_SOEA_MASK) >> -23;
+    return (bitboard & !constants::SHIFT_NOEA_TO_SOEA_MASK) >> 23;
 }
 #[inline(always)]
 pub const fn shift_noea_to_sowe(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_NOEA_TO_SOWE_MASK) >> -24;
+    return (bitboard & !constants::SHIFT_NOEA_TO_SOWE_MASK) >> 24;
 }
 #[inline(always)]
 pub const fn shift_nowe_to_west(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_NOWE_TO_WEST_MASK) >> -12;
+    return (bitboard & !constants::SHIFT_NOWE_TO_WEST_MASK) >> 12;
 }
 #[inline(always)]
 pub const fn shift_nowe_to_east(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_NOWE_TO_EAST_MASK) >> -10;
+    return (bitboard & !constants::SHIFT_NOWE_TO_EAST_MASK) >> 10;
 }
 #[inline(always)]
 pub const fn shift_nowe_to_noea(bitboard: u128) -> u128 {
@@ -166,11 +166,11 @@ pub const fn shift_nowe_to_noea(bitboard: u128) -> u128 {
 }
 #[inline(always)]
 pub const fn shift_nowe_to_soea(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_NOWE_TO_SOEA_MASK) >> -22;
+    return (bitboard & !constants::SHIFT_NOWE_TO_SOEA_MASK) >> 22;
 }
 #[inline(always)]
 pub const fn shift_nowe_to_sowe(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_NOWE_TO_SOWE_MASK) >> -23;
+    return (bitboard & !constants::SHIFT_NOWE_TO_SOWE_MASK) >> 23;
 }
 #[inline(always)]
 pub const fn shift_soea_to_west(bitboard: u128) -> u128 {
@@ -190,7 +190,7 @@ pub const fn shift_soea_to_nowe(bitboard: u128) -> u128 {
 }
 #[inline(always)]
 pub const fn shift_soea_to_sowe(bitboard: u128) -> u128 {
-    return (bitboard & !constants::SHIFT_SOEA_TO_SOWE_MASK) >> -1;
+    return (bitboard & !constants::SHIFT_SOEA_TO_SOWE_MASK) >> 1;
 }
 #[inline(always)]
 pub const fn shift_sowe_to_west(bitboard: u128) -> u128 {

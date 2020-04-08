@@ -139,7 +139,7 @@ def gen_from_to(src, dest):
     ret += f"pub const fn shift_{src}_to_{dest}(bitboard: u128) -> u128 {'{'}\n"
     shift = shifts[first] + shifts[dest]
     if shift < 0:
-        shift_part = f">> {shift}"
+        shift_part = f">> {-shift}"
     else:
         shift_part = f"<< {shift}"
     ret += f"\treturn (bitboard & !constants::SHIFT_{src.upper()}_TO_{dest.upper()}_MASK) {shift_part};\n"
