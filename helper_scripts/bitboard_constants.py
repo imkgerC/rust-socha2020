@@ -24,7 +24,7 @@ def valid_fields():
 
 def print_val(label, val, gen_code=False):
     if (gen_code):
-        print(f"pub static {label}: u128 = {val};")
+        print(f"pub const {label}: u128 = {val};")
     else:
         print(label+":")
         print("\t"+f"{val}")
@@ -110,6 +110,45 @@ def mask_shift_west():
         val |= bit(0, z)
     return val
 
+def other_direction(val):
+    if val is 'west':
+        return 'east'
+    if val is 'east':
+        return 'west'
+    if val is 'nowe':
+        return 'soea'
+    if val is 'soea':
+        return 'nowe'
+    if val is 'sowe':
+        return 'noea'
+    if val is 'noea':
+        return 'sowe'
+    print("ERROR")
+
+def gen_from_to_const(src, dest):
+    first = other_direction(src)
+    second = dest
+    name = f"SHIFT_{src.upper()}_TO_{dest.upper()}_MASK"
+    calculation = f"super::shift_{first}(SHIFT_{second.upper()}_MASK) | SHIFT_{first.upper()}_MASK"
+    return f"pub const {name}: u128 = {calculation};"
+
+def gen_from_to(src, dest):
+    first = other_direction(src)
+    ret = ""
+    ret += "#[inline(always)]\n"
+    ret += f"pub const fn shift_{src}_to_{dest}(bitboard: u128) -> u128 {'{'}\n"
+    shift = shifts[first] + shifts[dest]
+    if shift < 0:
+        shift_part = f">> {shift}"
+    else:
+        shift_part = f"<< {shift}"
+    ret += f"\treturn (bitboard & !constants::SHIFT_{src.upper()}_TO_{dest.upper()}_MASK) {shift_part};\n"
+    ret += '}'
+    return ret
+
+directions = ['west', 'east', 'noea', 'nowe', 'soea', 'sowe']
+shifts = {'west': -1, 'east': 1, 'noea': 12, 'sowe': -12, 'nowe': 11, 'soea': -11}
+
 def main():
     gen_code = True
     print_val("VALID_FIELDS", valid_fields(), gen_code)
@@ -121,6 +160,14 @@ def main():
     print_val("SHIFT_WEST_MASK", mask_shift_west(), gen_code)
     print_val("SHIFT_EAST_UNSAFE_MASK", mask_shift_unsafe_east(), gen_code)
     print_val("SHIFT_WEST_UNSAFE_MASK", mask_shift_unsafe_west(), gen_code)
+    for src in directions:
+        for dest in directions:
+            if not src is dest:
+                print(gen_from_to_const(src, dest))
+    for src in directions:
+        for dest in directions:
+            if not src is dest:
+                print(gen_from_to(src, dest))
 
 if __name__ == "__main__":
     main()
