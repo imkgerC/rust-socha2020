@@ -129,7 +129,7 @@ def gen_from_to_const(src, dest):
     first = other_direction(src)
     second = dest
     name = f"SHIFT_{src.upper()}_TO_{dest.upper()}_MASK"
-    calculation = f"super::shift_{first}(SHIFT_{second.upper()}_MASK) | SHIFT_{first.upper()}_MASK"
+    calculation = f"super::shift_{src}(SHIFT_{second.upper()}_MASK) | SHIFT_{first.upper()}_MASK"
     return f"pub const {name}: u128 = {calculation};"
 
 def gen_from_to(src, dest):
