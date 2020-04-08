@@ -129,7 +129,9 @@ def gen_from_to_const(src, dest):
     first = other_direction(src)
     second = dest
     name = f"SHIFT_{src.upper()}_TO_{dest.upper()}_MASK"
-    calculation = f"super::shift_{src}(SHIFT_{second.upper()}_MASK) | SHIFT_{first.upper()}_MASK"
+    first_shift = f"<< {shifts[first]}" if shifts[first] > 0 else f">> {-shifts[first]}"
+    second_shift = f"<< {shifts[second]}" if shifts[second] > 0 else f">> {-shifts[second]}"
+    calculation = f"((!SHIFT_{second.upper()}_MASK {second_shift}) & !SHIFT_{first.upper()}_MASK) {first_shift}"
     return f"pub const {name}: u128 = {calculation};"
 
 def gen_from_to(src, dest):
@@ -142,7 +144,7 @@ def gen_from_to(src, dest):
         shift_part = f">> {-shift}"
     else:
         shift_part = f"<< {shift}"
-    ret += f"\treturn (bitboard & !constants::SHIFT_{src.upper()}_TO_{dest.upper()}_MASK) {shift_part};\n"
+    ret += f"\treturn (bitboard {shift_part}) & constants::SHIFT_{src.upper()}_TO_{dest.upper()}_MASK;\n"
     ret += '}'
     return ret
 
