@@ -92,7 +92,7 @@ impl Searcher {
 }
 impl ClientListener for Searcher {
     fn on_move_request(&mut self, state: &GameState) -> Action {
-        self.search_move(state, Timecontrol::MoveTime(180))
+        self.search_move(state, Timecontrol::MoveTime(1800))
     }
 }
 pub fn principal_variation_search(
