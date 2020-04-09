@@ -106,7 +106,7 @@ impl Engine {
         };
         (
             format!(
-                "{}\t\t{:.2}   +/- {:.2}   +{}   ={}   -{}  sc {:.1}%",
+                "{:40} {:.2}   +/- {:.2}   +{}   ={}   -{}  sc {:.1}%",
                 self.name,
                 elo_gain,
                 elo_bounds,
@@ -117,7 +117,7 @@ impl Engine {
                     / (self.wins + self.draws + self.losses) as f64,
             ),
             format!(
-                "{}\t\tdisq {} dep {:.2} nps {:.0} time {:.0}",
+                "{:40} disq {} dep {:.2} nps {:.0} time {:.0}",
                 self.name,
                 self.disqs,
                 self.stats.avg_depth,
