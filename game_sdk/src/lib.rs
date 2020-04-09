@@ -13,6 +13,7 @@ pub use actionlist::ActionList;
 pub use gamestate::Color;
 pub use gamestate::GameState;
 pub use hashing::HashKeys;
+pub use neighbor_magic::get_accessible_neighbors;
 pub use piece_type::PieceType;
 
 #[cfg(test)]
