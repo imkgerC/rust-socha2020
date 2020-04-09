@@ -12,7 +12,7 @@ impl Log {
             .write(true)
             .append(append)
             .open(path)
-            .unwrap();
+            .expect("please create a dir 'referee_logs'");
         Log(file)
     }
     pub fn log(&mut self, msg: &str, also_stdout: bool) {
