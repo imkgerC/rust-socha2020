@@ -39,6 +39,11 @@ impl Searcher {
 
     pub fn search_move(&mut self, game_state: &GameState, tc: Timecontrol) -> Action {
         println!("Searching state w/ fen:{}", game_state.to_fen());
+        let mut al = ActionList::default();
+        calculate_legal_moves(&game_state, &mut al);
+        if al.size == 0 {
+            panic!("There are no legal moves in this position! What should I return?");
+        }
         let mut game_state = game_state.clone();
         self.nodes_searched = 0;
         self.start_time = Some(Instant::now());
@@ -48,6 +53,7 @@ impl Searcher {
         self.root_plies_played = game_state.ply;
         let mut score = STANDARD_SCORE;
         for depth in 1..61 {
+            println!("Before: {}", game_state.hash);
             let new_score = principal_variation_search(
                 self,
                 &mut game_state,
@@ -63,6 +69,8 @@ impl Searcher {
             score = new_score;
             self.principal_variation_table = self.pv_table[0].clone();
             let mut toy_state = game_state.clone();
+            println!("TOY{}", toy_state.hash);
+            println!("{}", toy_state);
             self.principal_variation_hashtable.clear();
             for i in 0..self.principal_variation_table.size {
                 self.principal_variation_hashtable.push(toy_state.hash);
@@ -92,7 +100,7 @@ impl Searcher {
 }
 impl ClientListener for Searcher {
     fn on_move_request(&mut self, state: &GameState) -> Action {
-        self.search_move(state, Timecontrol::MoveTime(1800))
+        self.search_move(state, Timecontrol::MoveTime(180))
     }
 }
 pub fn principal_variation_search(
@@ -202,9 +210,14 @@ pub fn principal_variation_search(
     {
         let mut i = 0;
         if pv_action.is_some() {
-            let index = searcher.als[current_depth]
-                .find_action(pv_action.unwrap())
-                .expect("Pv move not found in movelist");
+            let index = searcher.als[current_depth].find_action(pv_action.unwrap());
+            if index.is_none() {
+                println!("{}", game_state);
+                println!("{}", game_state.hash);
+                println!("{:?}", searcher.principal_variation_table);
+                println!("{:?}", searcher.principal_variation_hashtable);
+            }
+            let index = index.unwrap();
             searcher.als[current_depth].swap(0, index);
             i += 1;
         }
@@ -215,6 +228,9 @@ pub fn principal_variation_search(
             searcher.als[current_depth].swap(i, index);
         }
     }
+
+    let HASH = game_state.hash;
+    println!("HASH in SEARCH: {}", HASH);
     //TODO move sorting
     for i in 0..searcher.als[current_depth].size {
         let action = searcher.als[current_depth][i];
@@ -255,7 +271,10 @@ pub fn principal_variation_search(
             }
             following_score
         };
+        println!("Before unmaking hash: {}", game_state.hash);
         game_state.unmake_action(action);
+        println!("HASH NOW: {}", game_state.hash);
+        println!("MOVE: {:?}", action);
         if following_score > current_max_score && !searcher.stop_flag {
             current_max_score = following_score;
             searcher.pv_table[current_depth].clear();
