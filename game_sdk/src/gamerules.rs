@@ -52,6 +52,7 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
             valid_set_destinations ^= 1 << to;
             actionlist.push(Action::SetMove(PieceType::BEE, to as u8));
         }
+        //TODO What if valid_set_destinations was 0 to start with? No legal move???
         return;
     }
 
