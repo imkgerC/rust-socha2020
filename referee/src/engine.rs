@@ -149,18 +149,16 @@ impl Engine {
         stdout: ChildStdout,
         stderr: &mut ChildStderr,
         engine_log: &mut Log,
-    ) -> (Action, Option<i16>, ChildStdout) {
+    ) -> (Option<Action>, Option<i16>, ChildStdout) {
         let request = format!("requestmove {}\n", game_state.to_fen());
         let now = Instant::now();
         print_command(stdin, request);
-        println!("Before");
         let (output, stdout) = block_on_output(
             stdout,
             Box::new(|s: String| s.contains("bestmove") && !s.contains("info")),
             stderr,
             engine_log,
         );
-        println!("After");
         let elapsed = now.elapsed().as_millis() as usize;
         engine_log.log(output.as_str(), false);
         let mut stats = EngineStats::default();
@@ -197,11 +195,7 @@ impl Engine {
             ()
         });
         self.stats.add(stats);
-        (
-            action.expect("No action could be found in output of engine"),
-            score,
-            stdout,
-        )
+        (action, score, stdout)
     }
 }
 pub fn get_elo_gain(p_a: f64) -> f64 {

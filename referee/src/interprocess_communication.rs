@@ -1,7 +1,6 @@
 use crate::logging::Log;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{ChildStderr, ChildStdin, ChildStdout};
-use std::time::Duration;
 
 pub fn print_command(stdin: &mut ChildStdin, command: String) {
     stdin
@@ -27,19 +26,19 @@ pub fn block_on_output<F: Fn(String) -> bool>(
         } else if new_line.len() == 0 {
             log.log(&buf_string, false);
             log_stderr(stderr, log);
-            panic!("");
+            break;
         }
     }
     (buf_string, bufreader.into_inner())
 }
 pub fn log_stderr(stderr: &mut ChildStderr, log: &mut Log) {
-    log.log("StdERR:\n", true);
+    log.log("StdERR:\n", false);
     let mut buffer = Vec::new();
     stderr
         .read_to_end(&mut buffer)
         .expect("Could not read from stderr");
     log.log(
         std::str::from_utf8(&buffer).expect("Could not convert to utf8"),
-        true,
+        false,
     );
 }

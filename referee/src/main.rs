@@ -4,6 +4,8 @@ use crate::logging::Log;
 use crate::queue::ThreadSafeQueue;
 use game_sdk::gamerules::{calculate_legal_moves, get_result, is_game_finished};
 use game_sdk::{Action, ActionList, Color, GameState, PieceType};
+use rand::prelude::ThreadRng;
+use rand::Rng;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{env, thread};
@@ -126,10 +128,12 @@ fn game_loop(config: Config) {
             println!("*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
 
             //Write fens
-            result.fens.iter().for_each(|fen| {
-                fen_log.log(&format!("{}\n", fen), false);
-                ()
-            })
+            if result.engine1.disqs + result.engine2.disqs == 0 {
+                result.fens.iter().for_each(|fen| {
+                    fen_log.log(&format!("{}\n", fen), false);
+                    ()
+                })
+            }
         }
     }
     for child in childs {
@@ -139,21 +143,34 @@ fn game_loop(config: Config) {
 }
 pub fn load_random_openings(n: usize, engine1: &Engine, engine2: &Engine) -> Vec<GameTask> {
     let mut res = Vec::with_capacity(n * 2);
+    let mut rng = rand::thread_rng();
     for id in 0..n {
-        let mut opening = GameState::random();
-        loop {
+        let mut opening;
+        'A: loop {
+            opening = GameState::random();
             //Make 2 random moves
             let mut al = ActionList::default();
             for _ in 0..2 {
                 calculate_legal_moves(&opening, &mut al);
-                opening.make_action(get_random_setmove(&al))
+                opening.make_action(get_random_setmove(&al, &mut rng))
             }
             calculate_legal_moves(&opening, &mut al);
-            if al.size == 1 && al[0] == Action::SkipMove {
-                opening = GameState::random();
-            } else {
-                break;
+            if has_no_beesetmove(&al) {
+                continue;
             }
+            for i in 0..al.size {
+                opening.make_action(al[i]);
+                let mut al2 = ActionList::default();
+                calculate_legal_moves(&opening, &mut al2);
+                if has_no_beesetmove(&al2) {
+                    continue 'A;
+                }
+                opening.unmake_action(al[i]);
+            }
+            if al.size == 1 && al[0] == Action::SkipMove {
+                continue;
+            }
+            break;
         }
         res.push(GameTask {
             opening: opening.clone(),
@@ -172,21 +189,28 @@ pub fn load_random_openings(n: usize, engine1: &Engine, engine2: &Engine) -> Vec
     }
     res
 }
-pub fn get_random_setmove(al: &ActionList) -> Action {
+pub fn has_no_beesetmove(al: &ActionList) -> bool {
     for i in 0..al.size {
-        match al[i] {
-            Action::SetMove(pt, _) => {
-                if match pt {
-                    PieceType::BEE => false,
-                    _ => true,
-                } {
-                    return al[i];
-                }
-            }
-            _ => continue,
+        if let Action::SetMove(PieceType::BEE, _) = al[i] {
+            return false;
         }
     }
-    panic!("No setmove(wihtout bee setting) in al ")
+    true
+}
+pub fn get_random_setmove(al: &ActionList, rng: &mut ThreadRng) -> Action {
+    let mut al2 = ActionList::default();
+    for i in 0..al.size {
+        if let Action::SetMove(PieceType::BEE, _) = al[i] {
+        } else {
+            al2.push(al[i]);
+        }
+    }
+    if al2.size == 0 {
+        panic!("No setmove(wihtout bee setting) in al ")
+    } else {
+        let rand = rng.gen_range(0, al2.size);
+        al2[rand]
+    }
 }
 pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
     let write_error = |msg| {
@@ -215,7 +239,7 @@ pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
     while !is_game_finished(&state) {
         let is_engine1 = state.color_to_move == Color::RED && game.engine1_is_red
             || state.color_to_move == Color::BLUE && !game.engine1_is_red;
-        let action: Action;
+        let action: Option<Action>;
         let score: Option<i16>;
         if is_engine1 {
             let res =
@@ -232,25 +256,39 @@ pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
         }
         fens.push(format!("{}//{:?}", state.to_fen(), score));
         calculate_legal_moves(&state, &mut al);
-        if al.find_action(action).is_none() {
+        if action.is_none() || al.find_action(action.unwrap()).is_none() {
             if is_engine1 {
                 engine1.disqs += 1;
             } else {
                 engine2.disqs += 1;
             }
-            write_error(&format!(
-                "Engine {} sent an invalid move {} in state: {}! Disqualifying..",
-                if is_engine1 {
-                    engine1.name.clone()
-                } else {
-                    engine2.name.clone()
-                },
-                action.to_string(),
-                state.to_fen()
-            ));
+            if action.is_none() {
+                write_error(&format!(
+                    "Engine {} crashed in game {} in state: {}! Disqualifying..\n",
+                    if is_engine1 {
+                        engine1.name.clone()
+                    } else {
+                        engine2.name.clone()
+                    },
+                    game.game_id,
+                    state.to_fen()
+                ));
+            } else {
+                write_error(&format!(
+                    "Engine {} sent an invalid move {} in game {} in state: {}! Disqualifying..\n",
+                    if is_engine1 {
+                        engine1.name.clone()
+                    } else {
+                        engine2.name.clone()
+                    },
+                    action.unwrap().to_string(),
+                    game.game_id,
+                    state.to_fen()
+                ));
+            }
             break;
         } else {
-            state.make_action(action);
+            state.make_action(action.unwrap());
             if is_game_finished(&state) {
                 let winner = get_result(&state);
                 if winner.is_none() {
@@ -279,8 +317,12 @@ pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
     fens.push(format!("{}//GameOver", state.to_fen()));
 
     //Close threads
-    print_command(&mut e1stdin, "exit\n".to_owned());
-    print_command(&mut e2stdin, "exit\n".to_owned());
+    if !engine1.disqs == 1 {
+        print_command(&mut e1stdin, "exit\n".to_owned());
+    }
+    if !engine2.disqs == 1 {
+        print_command(&mut e2stdin, "exit\n".to_owned());
+    }
     std::thread::sleep(Duration::from_millis(25));
     match e1_process.try_wait() {
         Err(_) => e1_process.kill().expect("Could not kill Engine 1"),

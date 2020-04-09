@@ -106,8 +106,10 @@ impl GameState {
                 while i >= 0 {
                     if beetle_stack[i as usize][RED as usize] & 1u128 << index > 0 {
                         occupied[RED as usize] |= 1u128 << index;
+                        break;
                     } else if beetle_stack[i as usize][BLUE as usize] & 1u128 << index > 0 {
                         occupied[BLUE as usize] |= 1u128 << index;
+                        break;
                     }
                     i -= 1;
                 }
@@ -405,6 +407,7 @@ impl GameState {
         self.ply += 1;
         self.color_to_move = self.color_to_move.swap();
         self.hash ^= COLOR_TO_MOVE_HASH;
+        debug_assert!(self.occupied[RED as usize] & self.occupied[BLUE as usize] == 0u128);
         debug_assert_eq!(
             self.hash,
             GameState::calculate_hash(&self.pieces, self.color_to_move, &self.beetle_stack)
