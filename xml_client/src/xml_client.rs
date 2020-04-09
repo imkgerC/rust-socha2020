@@ -110,6 +110,8 @@ impl XMLClient {
                         "result" => {
                             /*println!("{:?}", node.get_attributes());
                             println!("{:?}", node.get_children());*/
+                            println!("got result");
+                            break;
                         }
                         s => {
                             println!("got {}", s.to_string());
@@ -125,7 +127,6 @@ impl XMLClient {
                 }
                 "left" => {
                     println!("left");
-                    break;
                 }
                 _ => {}
             }
