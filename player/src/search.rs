@@ -1,10 +1,10 @@
+use crate::cache::{Cache, CacheEntry, HASH_SIZE};
 use crate::evaluation::evaluate;
 use crate::timecontrol::Timecontrol;
 use game_sdk::actionlist::ActionListStack;
 use game_sdk::gamerules::{calculate_legal_moves, get_result, is_game_finished};
 use game_sdk::{Action, ActionList, ClientListener, Color, GameState};
 use std::time::Instant;
-use crate::cache::{Cache, HASH_SIZE, CacheEntry};
 
 pub const MATE_IN_MAX: i16 = 30000;
 pub const MATED_IN_MAX: i16 = -MATE_IN_MAX;
@@ -19,7 +19,7 @@ pub struct Searcher {
     pub pv_table: ActionListStack,
     pub stop_flag: bool,
     pub cache: Cache,
-    pub root_plies_played: u8
+    pub root_plies_played: u8,
 }
 
 impl Searcher {
@@ -33,7 +33,7 @@ impl Searcher {
             pv_table: ActionListStack::with_size(60),
             stop_flag: false,
             cache: Cache::with_size(HASH_SIZE),
-            root_plies_played: 0
+            root_plies_played: 0,
         }
     }
 
@@ -128,8 +128,11 @@ pub fn principal_variation_search(
             return STANDARD_SCORE;
         }
     }
-    if searcher.nodes_searched % 10000000 == 0{
-        println!("info nps {}", searcher.nodes_searched as f64 / (searcher.start_time.unwrap().elapsed().as_secs_f64()));
+    if searcher.nodes_searched % 10000000 == 0 {
+        println!(
+            "info nps {}",
+            searcher.nodes_searched as f64 / (searcher.start_time.unwrap().elapsed().as_secs_f64())
+        );
     }
     //Check game over
     if is_game_finished(game_state) {
@@ -164,9 +167,15 @@ pub fn principal_variation_search(
     let mut tt_action: Option<Action> = None;
     {
         let ce = searcher.cache.lookup(game_state.hash);
-        if let Some(ce) = ce{
-            if ce.depth >= depth_left as u8 && !pv_node && ((game_state.ply + depth_left as u8) < 60 && ce.plies + ce.depth < 60 || (game_state.ply + depth_left as u8) >= 60 && ce.plies + ce.depth >= 60)
-            && (!ce.alpha && !ce.beta || ce.beta && ce.score >= beta || ce.alpha && ce.score <= alpha){
+        if let Some(ce) = ce {
+            if ce.depth >= depth_left as u8
+                && !pv_node
+                && ((game_state.ply + depth_left as u8) < 60 && ce.plies + ce.depth < 60
+                    || (game_state.ply + depth_left as u8) >= 60 && ce.plies + ce.depth >= 60)
+                && (!ce.alpha && !ce.beta
+                    || ce.beta && ce.score >= beta
+                    || ce.alpha && ce.score <= alpha)
+            {
                 return ce.score;
             }
             tt_action = Some(ce.action);
@@ -177,7 +186,8 @@ pub fn principal_variation_search(
 
     let mut current_max_score = STANDARD_SCORE;
     calculate_legal_moves(game_state, &mut searcher.als[current_depth]);
-    if searcher.als[current_depth].size == 0 //TODO{
+    if searcher.als[current_depth].size == 0 {
+        //TODO
         return MATED_IN_MAX;
     }
     //Some basic move sorting
@@ -190,8 +200,10 @@ pub fn principal_variation_search(
             searcher.als[current_depth].swap(0, index);
             i += 1;
         }
-        if tt_action.is_some() && (pv_action != tt_action){
-            let index = searcher.als[current_depth].find_action(tt_action.unwrap()).expect("TT move not found in movelist");
+        if tt_action.is_some() && (pv_action != tt_action) {
+            let index = searcher.als[current_depth]
+                .find_action(tt_action.unwrap())
+                .expect("TT move not found in movelist");
             searcher.als[current_depth].swap(i, index);
         }
     }
@@ -257,16 +269,20 @@ pub fn principal_variation_search(
     }
     //Make TT entry
     if !searcher.stop_flag {
-        searcher.cache.insert(game_state.hash, CacheEntry {
-            upper_hash: (game_state.hash >> 32) as u32,
-            lower_hash: (game_state.hash & 0xFFFFFFFF) as u32,
-            action: searcher.pv_table[current_depth][0],
-            score: current_max_score,
-            alpha: current_max_score <= original_alpha,
-            beta: alpha >= beta,
-            depth: depth_left as u8,
-            plies: game_state.ply
-        }, searcher.root_plies_played);
+        searcher.cache.insert(
+            game_state.hash,
+            CacheEntry {
+                upper_hash: (game_state.hash >> 32) as u32,
+                lower_hash: (game_state.hash & 0xFFFFFFFF) as u32,
+                action: searcher.pv_table[current_depth][0],
+                score: current_max_score,
+                alpha: current_max_score <= original_alpha,
+                beta: alpha >= beta,
+                depth: depth_left as u8,
+                plies: game_state.ply,
+            },
+            searcher.root_plies_played,
+        );
     }
     current_max_score
 }
