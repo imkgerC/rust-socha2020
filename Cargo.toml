@@ -2,7 +2,8 @@
 members = ["player",
            "game_sdk",
            "referee",
-           "xml_client"]
+           "xml_client",
+           "demo"]
 
 [profile.release]
 opt-level = 3
