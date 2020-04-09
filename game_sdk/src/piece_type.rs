@@ -17,6 +17,16 @@ impl PieceType {
             PieceType::SPIDER => "S".to_owned(),
         }
     }
+    pub fn from_string(str: String) -> Self {
+        match str.to_uppercase().as_str() {
+            "Q" => PieceType::BEE,
+            "A" => PieceType::ANT,
+            "B" => PieceType::BEETLE,
+            "G" => PieceType::GRASSHOPPER,
+            "S" => PieceType::SPIDER,
+            _ => panic!("Invalid piece type description"),
+        }
+    }
 }
 
 pub static PIECETYPE_VARIANTS: [PieceType; 5] = [

@@ -39,6 +39,11 @@ impl Searcher {
 
     pub fn search_move(&mut self, game_state: &GameState, tc: Timecontrol) -> Action {
         println!("Searching state w/ fen:{}", game_state.to_fen());
+        let mut al = ActionList::default();
+        calculate_legal_moves(&game_state, &mut al);
+        if al.size == 0 {
+            panic!("There are no legal moves in this position! What should I return?");
+        }
         let mut game_state = game_state.clone();
         self.nodes_searched = 0;
         self.start_time = Some(Instant::now());
@@ -92,7 +97,7 @@ impl Searcher {
 }
 impl ClientListener for Searcher {
     fn on_move_request(&mut self, state: &GameState) -> Action {
-        self.search_move(state, Timecontrol::MoveTime(1800))
+        self.search_move(state, Timecontrol::MoveTime(180))
     }
 }
 pub fn principal_variation_search(
@@ -205,7 +210,7 @@ pub fn principal_variation_search(
         if pv_action.is_some() {
             let index = searcher.als[current_depth]
                 .find_action(pv_action.unwrap())
-                .expect("Pv move not found in movelist");
+                .expect("PV move not found in movelist");
             searcher.als[current_depth].swap(0, index);
             i += 1;
         }
@@ -216,6 +221,7 @@ pub fn principal_variation_search(
             searcher.als[current_depth].swap(i, index);
         }
     }
+
     //TODO move sorting
     for i in 0..searcher.als[current_depth].size {
         let action = searcher.als[current_depth][i];

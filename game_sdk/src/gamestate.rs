@@ -7,6 +7,8 @@ use crate::gamestate::Color::{BLUE, RED};
 use crate::hashing::{BEETLE_STACK_HASH, COLOR_TO_MOVE_HASH, PIECE_HASH};
 use crate::piece_type::{PieceType, PIECETYPE_VARIANTS};
 use colored::Colorize;
+use rand::prelude::ThreadRng;
+use rand::Rng;
 use std::fmt::{Display, Formatter, Result};
 
 #[repr(u8)]
@@ -104,8 +106,10 @@ impl GameState {
                 while i >= 0 {
                     if beetle_stack[i as usize][RED as usize] & 1u128 << index > 0 {
                         occupied[RED as usize] |= 1u128 << index;
+                        break;
                     } else if beetle_stack[i as usize][BLUE as usize] & 1u128 << index > 0 {
                         occupied[BLUE as usize] |= 1u128 << index;
+                        break;
                     }
                     i -= 1;
                 }
@@ -153,6 +157,24 @@ impl GameState {
             beetle_stack,
             obstacles: 0,
             hash,
+        }
+    }
+    pub fn random() -> GameState {
+        let mut res = GameState::new();
+        let mut rng = rand::thread_rng();
+        let mut obstacles = 0u128;
+        while obstacles.count_ones() < 3 {
+            obstacles |= GameState::valid_occ_field_bb(&mut rng);
+        }
+        res.obstacles = obstacles;
+        res
+    }
+    fn valid_occ_field_bb(rng: &mut ThreadRng) -> u128 {
+        loop {
+            let pos = rng.gen_range(0, 121);
+            if (1u128 << pos) & VALID_FIELDS > 0 {
+                return 1u128 << pos;
+            }
         }
     }
     pub fn calculate_hash(
@@ -385,6 +407,7 @@ impl GameState {
         self.ply += 1;
         self.color_to_move = self.color_to_move.swap();
         self.hash ^= COLOR_TO_MOVE_HASH;
+        debug_assert!(self.occupied[RED as usize] & self.occupied[BLUE as usize] == 0u128);
         debug_assert_eq!(
             self.hash,
             GameState::calculate_hash(&self.pieces, self.color_to_move, &self.beetle_stack)

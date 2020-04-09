@@ -60,4 +60,36 @@ impl Action {
         };
         return ret;
     }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Action::SkipMove => "SkipMove".to_owned(),
+            Action::SetMove(pt, to) => format!("SetMove {} {}", pt.to_string(), to),
+            Action::DragMove(pt, from, to) => {
+                format!("DragMove {} {} {}", pt.to_string(), from, to)
+            }
+        }
+    }
+
+    pub fn from_string(str: String) -> Self {
+        let descs: Vec<&str> = str.split(" ").collect();
+        assert!(!descs.is_empty());
+        match descs[0].to_uppercase().as_str() {
+            "SKIPMOVE" => Action::SkipMove,
+            "SETMOVE" => {
+                assert_eq!(descs.len(), 3);
+                let pt = PieceType::from_string(descs[1].to_owned());
+                let to = descs[2].parse::<u8>().expect("Invalid to field");
+                Action::SetMove(pt, to)
+            }
+            "DRAGMOVE" => {
+                assert_eq!(descs.len(), 4);
+                let pt = PieceType::from_string(descs[1].to_owned());
+                let from = descs[2].parse::<u8>().expect("Invalid from field");
+                let to = descs[3].parse::<u8>().expect("Invalid to field");
+                Action::DragMove(pt, from, to)
+            }
+            _ => panic!("Invalid action description"),
+        }
+    }
 }

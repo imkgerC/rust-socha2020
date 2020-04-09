@@ -9,6 +9,7 @@ use crate::neighbor_magic::get_accessible_neighbors;
 use crate::piece_type::PieceType;
 
 pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
+    debug_assert!(game_state.occupied[RED as usize] & game_state.occupied[BLUE as usize] == 0u128);
     actionlist.size = 0;
     if game_state.ply == 0 {
         // SetMoves for every field and every PieceType
