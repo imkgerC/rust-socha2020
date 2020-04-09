@@ -175,6 +175,8 @@ pub fn principal_variation_search(
                     || ce.beta && ce.score >= beta
                     || ce.alpha && ce.score <= alpha)
             {
+                searcher.pv_table[current_depth].clear();
+                searcher.pv_table[current_depth].push(ce.action);
                 return ce.score;
             }
             tt_action = Some(ce.action);
