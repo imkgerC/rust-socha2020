@@ -169,11 +169,12 @@ pub fn principal_variation_search(
         let ce = searcher.cache.lookup(game_state.hash);
         if let Some(ce) = ce {
             if ce.depth >= depth_left as u8
-                && !pv_node
                 && ((game_state.ply + depth_left as u8) < 60 && ce.plies + ce.depth < 60
                     || (game_state.ply + depth_left as u8) >= 60 && ce.plies + ce.depth >= 60)
             {
                 if !ce.alpha && !ce.beta {
+                    searcher.pv_table[current_depth].clear();
+                    searcher.pv_table[current_depth].push(ce.action);
                     return ce.score;
                 } else {
                     if ce.beta {
