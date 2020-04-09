@@ -101,7 +101,7 @@ pub fn principal_variation_search(
     current_depth: usize,
     depth_left: usize,
     mut alpha: i16,
-    beta: i16,
+    mut beta: i16,
     tc: Timecontrol,
 ) -> i16 {
     searcher.nodes_searched += 1;
@@ -172,11 +172,19 @@ pub fn principal_variation_search(
                 && !pv_node
                 && ((game_state.ply + depth_left as u8) < 60 && ce.plies + ce.depth < 60
                     || (game_state.ply + depth_left as u8) >= 60 && ce.plies + ce.depth >= 60)
-                && (!ce.alpha && !ce.beta
-                    || ce.beta && ce.score >= beta
-                    || ce.alpha && ce.score <= alpha)
             {
-                return ce.score;
+                if !ce.alpha && !ce.beta {
+                    return ce.score;
+                } else {
+                    if ce.beta {
+                        alpha = alpha.max(ce.score);
+                    } else if ce.alpha {
+                        beta = beta.min(ce.score);
+                    }
+                    if alpha >= beta {
+                        return alpha;
+                    }
+                }
             }
             tt_action = Some(ce.action);
         }
