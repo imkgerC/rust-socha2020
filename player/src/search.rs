@@ -4,6 +4,7 @@ use game_sdk::actionlist::ActionListStack;
 use game_sdk::gamerules::{calculate_legal_moves, get_result, is_game_finished};
 use game_sdk::{Action, ActionList, ClientListener, Color, GameState};
 use std::time::Instant;
+use crate::cache::{Cache, HASH_SIZE, CacheEntry};
 
 pub const MATE_IN_MAX: i16 = 30000;
 pub const MATED_IN_MAX: i16 = -MATE_IN_MAX;
@@ -17,6 +18,8 @@ pub struct Searcher {
     pub principal_variation_hashtable: Vec<u64>,
     pub pv_table: ActionListStack,
     pub stop_flag: bool,
+    pub cache: Cache,
+    pub root_plies_played: u8
 }
 
 impl Searcher {
@@ -29,6 +32,8 @@ impl Searcher {
             principal_variation_hashtable: Vec::with_capacity(60),
             pv_table: ActionListStack::with_size(60),
             stop_flag: false,
+            cache: Cache::with_size(HASH_SIZE),
+            root_plies_played: 0
         }
     }
 
@@ -40,6 +45,7 @@ impl Searcher {
         self.principal_variation_table.clear();
         self.principal_variation_hashtable.clear();
         self.stop_flag = false;
+        self.root_plies_played = game_state.ply;
         let mut score = STANDARD_SCORE;
         for depth in 1..61 {
             let new_score = principal_variation_search(
@@ -65,12 +71,14 @@ impl Searcher {
             let nps =
                 self.nodes_searched as f64 / (self.start_time.unwrap().elapsed().as_secs_f64());
             println!(
-                "info depth {} score {} bestmove {:?} nodes {} nps {:.2} pv {:?}",
+                "info depth {} score {} bestmove {:?} nodes {} nps {:.2} time {} hashfull {} pv {:?}",
                 depth,
                 score,
                 self.principal_variation_table[0],
                 self.nodes_searched,
                 nps,
+                self.start_time.unwrap().elapsed().as_millis(),
+                self.cache.fill_status(),
                 self.principal_variation_table
             );
         }
@@ -91,7 +99,7 @@ pub fn principal_variation_search(
     searcher: &mut Searcher,
     game_state: &mut GameState,
     current_depth: usize,
-    depth_left: isize,
+    depth_left: usize,
     mut alpha: i16,
     beta: i16,
     tc: Timecontrol,
@@ -106,6 +114,7 @@ pub fn principal_variation_search(
     } else {
         -1
     };
+    let original_alpha = alpha;
 
     if searcher.nodes_searched % 4096 == 0 {
         if tc.time_over(
@@ -118,6 +127,9 @@ pub fn principal_variation_search(
             searcher.stop_flag = true;
             return STANDARD_SCORE;
         }
+    }
+    if searcher.nodes_searched % 10000000 == 0{
+        println!("info nps {}", searcher.nodes_searched as f64 / (searcher.start_time.unwrap().elapsed().as_secs_f64()));
     }
     //Check game over
     if is_game_finished(game_state) {
@@ -149,18 +161,39 @@ pub fn principal_variation_search(
         None
     };
 
-    //TODO: TT Lookup
-    let tt_action: Option<Action> = None;
+    let mut tt_action: Option<Action> = None;
+    {
+        let ce = searcher.cache.lookup(game_state.hash);
+        if let Some(ce) = ce{
+            if ce.depth >= depth_left as u8 && !pv_node && ((game_state.ply + depth_left as u8) < 60 && ce.plies + ce.depth < 60 || (game_state.ply + depth_left as u8) >= 60 && ce.plies + ce.depth >= 60)
+            && (!ce.alpha && !ce.beta || ce.beta && ce.score >= beta || ce.alpha && ce.score <= alpha){
+                return ce.score;
+            }
+            tt_action = Some(ce.action);
+        }
+    }
 
     //TODO: Pruning
 
     let mut current_max_score = STANDARD_SCORE;
     calculate_legal_moves(game_state, &mut searcher.als[current_depth]);
-    if pv_action.is_some() {
-        let index = searcher.als[current_depth]
-            .find_action(pv_action.unwrap())
-            .expect("Pv move not found in movelist");
-        searcher.als[current_depth].swap(0, index);
+    if searcher.als[current_depth].size == 0 //TODO{
+        return MATED_IN_MAX;
+    }
+    //Some basic move sorting
+    {
+        let mut i = 0;
+        if pv_action.is_some() {
+            let index = searcher.als[current_depth]
+                .find_action(pv_action.unwrap())
+                .expect("Pv move not found in movelist");
+            searcher.als[current_depth].swap(0, index);
+            i += 1;
+        }
+        if tt_action.is_some() && (pv_action != tt_action){
+            let index = searcher.als[current_depth].find_action(tt_action.unwrap()).expect("TT move not found in movelist");
+            searcher.als[current_depth].swap(i, index);
+        }
     }
     //TODO move sorting
     for i in 0..searcher.als[current_depth].size {
@@ -205,10 +238,10 @@ pub fn principal_variation_search(
         game_state.unmake_action(action);
         if following_score > current_max_score && !searcher.stop_flag {
             current_max_score = following_score;
+            searcher.pv_table[current_depth].clear();
+            searcher.pv_table[current_depth].push(action);
             //Set Pv
             if pv_node {
-                searcher.pv_table[current_depth].clear();
-                searcher.pv_table[current_depth].push(action);
                 for i in 0..searcher.pv_table[current_depth + 1].size {
                     let action = searcher.pv_table[current_depth + 1][i];
                     searcher.pv_table[current_depth].push(action);
@@ -222,6 +255,18 @@ pub fn principal_variation_search(
             break;
         }
     }
-    //TODO Make TT Entry
+    //Make TT entry
+    if !searcher.stop_flag {
+        searcher.cache.insert(game_state.hash, CacheEntry {
+            upper_hash: (game_state.hash >> 32) as u32,
+            lower_hash: (game_state.hash & 0xFFFFFFFF) as u32,
+            action: searcher.pv_table[current_depth][0],
+            score: current_max_score,
+            alpha: current_max_score <= original_alpha,
+            beta: alpha >= beta,
+            depth: depth_left as u8,
+            plies: game_state.ply
+        }, searcher.root_plies_played);
+    }
     current_max_score
 }

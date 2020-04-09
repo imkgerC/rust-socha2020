@@ -48,12 +48,11 @@ impl Index<usize> for ActionList {
         if index < self.size {
             &self.actions[index]
         } else {
-            println!("{:?}", self.actions.to_vec());
             panic!(
                 "Index out of bounds for ActionList, given index: {}, size: {}, actions: {:?}",
                 index,
                 self.size,
-                self.actions.to_vec()
+                self.actions[0..self.size].to_vec()
             );
         }
     }
