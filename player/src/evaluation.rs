@@ -21,12 +21,10 @@ pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
         + 0.33
             * (bee_neighbors & game_state.pieces[PieceType::BEETLE as usize][color as usize])
                 .count_ones() as f64;
-    let our_set_fields = (get_neighbours(
-        game_state.occupied[color as usize]
-            & !obstacles
-            & !occupied
-            & !get_neighbours(game_state.occupied[color.swap() as usize]),
-    ))
+    let our_set_fields = (get_neighbours(game_state.occupied[color as usize])
+        & !obstacles
+        & !occupied
+        & !get_neighbours(game_state.occupied[color.swap() as usize]))
     .count_ones() as f64;
     let beetle_on_bee = if bee_index <= 120
         && game_state.is_on_stack(bee_index)

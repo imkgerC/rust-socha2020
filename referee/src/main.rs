@@ -2,7 +2,6 @@ use crate::engine::Engine;
 use crate::interprocess_communication::print_command;
 use crate::logging::Log;
 use crate::queue::ThreadSafeQueue;
-use game_sdk::bitboard::constants::VALID_FIELDS;
 use game_sdk::bitboard::get_neighbours;
 use game_sdk::gamerules::{calculate_legal_moves, get_result, is_game_finished};
 use game_sdk::{Action, ActionList, Color, GameState, PieceType};
