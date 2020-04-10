@@ -345,7 +345,7 @@ fn get_beetle_accessible_neighbours(occupied: u128, obstacles: u128, field: u128
     return ret & !obstacles;
 }
 
-fn are_connected_in_swarm(occupied: u128, to_check: u128) -> bool {
+pub fn are_connected_in_swarm(occupied: u128, to_check: u128) -> bool {
     if to_check.count_ones() == 1 {
         return true;
     }

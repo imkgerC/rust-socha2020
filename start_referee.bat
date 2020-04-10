@@ -1,3 +1,3 @@
 cargo build -p referee --release
-"./target/release/referee.exe" -n 1000 -t 4 -p1 "./target/release/referee_client.exe" -p2 "./old_versions/referee_client_v3.exe"
+"./target/release/referee.exe" -n 1000 -t 4 -p1 "./target/release/referee_client.exe" -p2 "./old_versions/referee_client_v4.exe"
 pause

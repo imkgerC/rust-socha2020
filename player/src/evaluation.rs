@@ -1,5 +1,6 @@
 use game_sdk::bitboard::get_neighbours;
-use game_sdk::{get_accessible_neighbors, Color, GameState, PieceType};
+use game_sdk::gamerules::are_connected_in_swarm;
+use game_sdk::{bitboard, get_accessible_neighbors, Color, GameState, PieceType};
 
 pub const COLOR_TO_MOVE: f64 = 12.0;
 pub fn evaluate(game_state: &GameState) -> i16 {
@@ -34,12 +35,51 @@ pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
     } else {
         0.
     };
+    let mut ant_pinning_enemies = 0.;
+    let mut ants = game_state.pieces[PieceType::ANT as usize][color as usize];
+    while ants > 0 {
+        let ant = ants.trailing_zeros();
+        if (get_neighbours(1u128 << ant) & occupied).count_ones() == 1
+            && get_neighbours(1u128 << ant) & game_state.occupied[color.swap() as usize] > 0
+        {
+            ant_pinning_enemies += 1.;
+        }
+        ants ^= 1u128 << ant;
+    }
+    let mut pinned_pieces = 0.;
+    for pt in [
+        PieceType::BEE,
+        PieceType::BEETLE,
+        PieceType::ANT,
+        PieceType::SPIDER,
+        PieceType::GRASSHOPPER,
+    ]
+    .iter()
+    {
+        let mut pieces = game_state.pieces[*pt as usize][color as usize];
+        while pieces > 0 {
+            let piece_index = pieces.trailing_zeros();
+            if !can_be_removed(1u128 << piece_index, occupied) {
+                pinned_pieces += 1.;
+            }
+            pieces ^= 1u128 << piece_index;
+        }
+    }
     let mut res = 0.;
-    res += (12. * free_bee_fields + 4. * bee_moves + our_set_fields - 30. * beetle_on_bee);
+    res += (12. * free_bee_fields + 4. * bee_moves + our_set_fields - 30. * beetle_on_bee
+        + 6. * ant_pinning_enemies
+        - 6. * pinned_pieces);
     res += if game_state.color_to_move == color {
         COLOR_TO_MOVE
     } else {
         0.
     };
     res
+}
+
+pub fn can_be_removed(from: u128, occupied: u128) -> bool {
+    // check if field can be removed and swarm is still connected
+    let occupied = occupied ^ from;
+    let neighbours = bitboard::get_neighbours(from) & occupied;
+    are_connected_in_swarm(occupied, neighbours)
 }
