@@ -8,8 +8,47 @@ use crate::gamestate::GameState;
 use crate::neighbor_magic::get_accessible_neighbors;
 use crate::piece_type::PieceType;
 
+impl GameState {
+    #[inline(always)]
+    pub fn must_player_place_bee(&self) -> bool {
+        let round = self.ply / 2;
+        if round == 3 {
+            if !self.has_player_placed_bee() {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    #[inline(always)]
+    pub fn has_player_placed_bee(&self) -> bool {
+        return self.pieces[PieceType::BEE as usize][self.color_to_move as usize] > 0;
+    }
+
+    #[inline(always)]
+    pub fn is_on_colored_stack(&self, index: usize, color: Color) -> bool {
+        (1u128 << index) & self.beetle_stack[0][color as usize] != 0
+    }
+
+    #[inline(always)]
+    pub fn is_on_stack(&self, index: usize) -> bool {
+        self.is_on_colored_stack(index, Color::RED) || self.is_on_colored_stack(index, Color::BLUE)
+    }
+
+    #[inline(always)]
+    pub fn occupied(&self) -> u128 {
+        self.occupied[Color::RED as usize] | self.occupied[Color::BLUE as usize]
+    }
+
+    #[inline(always)]
+    pub fn valid_set_destinations(&self, color: Color) -> u128 {
+        let next_to_own = bitboard::get_neighbours(self.occupied[color as usize]);
+        let next_to_other = bitboard::get_neighbours(self.occupied[color.swap() as usize]);
+        next_to_own & !(next_to_other | self.obstacles | self.occupied())
+    }
+}
 pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
-    debug_assert!(game_state.occupied[RED as usize] & game_state.occupied[BLUE as usize] == 0u128);
+    debug_assert!(game_state.check_integrity());
     actionlist.size = 0;
     if game_state.ply == 0 {
         // SetMoves for every field and every PieceType
@@ -38,13 +77,7 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
         }
         return;
     }
-
-    let next_to_own =
-        bitboard::get_neighbours(game_state.occupied[game_state.color_to_move as usize]);
-    let next_to_other =
-        bitboard::get_neighbours(game_state.occupied[game_state.color_to_move.swap() as usize]);
-    let mut valid_set_destinations =
-        next_to_own & !(next_to_other | game_state.obstacles | game_state.occupied());
+    let mut valid_set_destinations = game_state.valid_set_destinations(game_state.color_to_move);
 
     if game_state.must_player_place_bee() {
         // only bee SetMoves
@@ -78,14 +111,7 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
     {
         allowed.push(PieceType::GRASSHOPPER);
     }
-    if (game_state.pieces[PieceType::BEETLE as usize][game_state.color_to_move as usize]
-        .count_ones()
-        + game_state.beetle_stack[0][game_state.color_to_move as usize].count_ones()
-        + game_state.beetle_stack[1][game_state.color_to_move as usize].count_ones()
-        + game_state.beetle_stack[2][game_state.color_to_move as usize].count_ones()
-        + game_state.beetle_stack[3][game_state.color_to_move as usize].count_ones())
-        < 2
-    {
+    if game_state.amount_of_beetles_from_color(game_state.color_to_move) < 2 {
         allowed.push(PieceType::BEETLE);
     }
     while valid_set_destinations > 0 {

@@ -4,7 +4,7 @@ use crate::bitboard::constants::VALID_FIELDS;
 use crate::fieldtype::FieldType;
 use crate::gamerules::{calculate_legal_moves, is_game_finished};
 use crate::gamestate::Color::{BLUE, RED};
-use crate::hashing::{BEETLE_STACK_HASH, COLOR_TO_MOVE_HASH, PIECE_HASH};
+use crate::hashing::{BEETLE_STACK_HASH, COLOR_TO_MOVE_HASH, PIECE_HASH, PLY6_HASH};
 use crate::piece_type::{PieceType, PIECETYPE_VARIANTS};
 use colored::Colorize;
 use rand::prelude::ThreadRng;
@@ -47,6 +47,136 @@ pub struct GameState {
     pub hash: u64,
 }
 impl GameState {
+    #[inline(always)]
+    pub fn stack_color(&self, at: usize) -> Color {
+        let mut index = 3isize;
+        while index >= 0 {
+            if self.beetle_stack[index as usize][Color::RED as usize] & (1u128 << at) > 0 {
+                return Color::RED;
+            } else if self.beetle_stack[index as usize][Color::BLUE as usize] & (1u128 << at) > 0 {
+                return Color::BLUE;
+            }
+            index -= 1;
+        }
+        panic!("No beetles on stack...")
+    }
+
+    pub fn check_integrity(&self) -> bool {
+        if self.ply > 60
+            || self.color_to_move
+                != (if self.ply % 2 == 0 {
+                    Color::RED
+                } else {
+                    Color::BLUE
+                })
+        {
+            return false;
+        }
+        //Check pieces
+        if self.pieces[PieceType::BEE as usize][Color::RED as usize].count_ones() > 1
+            || self.pieces[PieceType::BEE as usize][Color::BLUE as usize].count_ones() > 1
+        {
+            return false;
+        } else if self.pieces[PieceType::ANT as usize][Color::RED as usize].count_ones() > 3
+            || self.pieces[PieceType::ANT as usize][Color::BLUE as usize].count_ones() > 3
+        {
+            return false;
+        } else if self.pieces[PieceType::SPIDER as usize][Color::RED as usize].count_ones() > 3
+            || self.pieces[PieceType::SPIDER as usize][Color::BLUE as usize].count_ones() > 3
+        {
+            return false;
+        } else if self.pieces[PieceType::GRASSHOPPER as usize][Color::RED as usize].count_ones() > 2
+            || self.pieces[PieceType::GRASSHOPPER as usize][Color::BLUE as usize].count_ones() > 2
+        {
+            return false;
+        } else if self.amount_of_beetles_from_color(Color::RED) > 2
+            || self.amount_of_beetles_from_color(Color::BLUE) > 2
+        {
+            return false;
+        } else if self.pieces_from_color(Color::RED) & self.pieces_from_color(Color::BLUE) > 0 {
+            return false;
+        }
+        //Check beetle stack
+        //No two beetles may be on same index in stack
+        if self.beetle_stack[0][0] & self.beetle_stack[0][1] > 0
+            || self.beetle_stack[1][0] & self.beetle_stack[1][1] > 0
+            || self.beetle_stack[2][0] & self.beetle_stack[2][1] > 0
+            || self.beetle_stack[3][0] & self.beetle_stack[3][1] > 0
+        {
+            return false;
+        }
+        let beetles_on_stack = self.beetle_stack[0][0]
+            | self.beetle_stack[1][0]
+            | self.beetle_stack[2][0]
+            | self.beetle_stack[3][0]
+            | self.beetle_stack[0][1]
+            | self.beetle_stack[1][1]
+            | self.beetle_stack[2][1]
+            | self.beetle_stack[3][1];
+        let mut check = beetles_on_stack;
+        while check > 0 {
+            let beetle = check.trailing_zeros() as usize;
+            //Find beetle on stack
+            let mut index = 3;
+            while index > 0 {
+                if (self.beetle_stack[index][0] | self.beetle_stack[index][1]) & 1u128 << beetle > 0
+                {
+                    break;
+                }
+                index -= 1;
+            }
+            let mut index = index as isize;
+            while index >= 0 {
+                if (self.beetle_stack[index as usize][0] | self.beetle_stack[index as usize][1])
+                    & 1u128 << beetle
+                    == 0
+                {
+                    return false;
+                }
+                index -= 1;
+            }
+            check ^= 1u128 << beetle;
+        }
+        //Check occupied bitboard
+        if self.occupied[Color::RED as usize] & self.occupied[Color::BLUE as usize] > 0 {
+            return false;
+        }
+        for color in [Color::RED, Color::BLUE].iter() {
+            let pieces = self.pieces_from_color(*color);
+            let occ = self.occupied[*color as usize];
+            for i in 0..121usize {
+                let field = 1u128 << i;
+                let is_occ = occ & field > 0;
+                if is_occ {
+                    if pieces & field == 0
+                        && (!self.is_on_stack(i) || self.stack_color(i) != *color)
+                    {
+                        println!("here");
+                        return false;
+                    }
+                } else {
+                    if self.is_on_stack(i) && self.stack_color(i) == *color {
+                        return false;
+                    } else if !self.is_on_stack(i) && pieces & field > 0 {
+                        return false;
+                    }
+                }
+            }
+        }
+        //Check hash
+        if self.hash
+            != GameState::calculate_hash(
+                &self.pieces,
+                self.color_to_move,
+                &self.beetle_stack,
+                self.ply,
+            )
+        {
+            return false;
+        }
+        true
+    }
+
     pub fn to_fen(&self) -> String {
         let mut fen = String::new();
         fen.push_str(&format!(
@@ -75,6 +205,7 @@ impl GameState {
         ));
         fen
     }
+
     pub fn from_fen(fen: String) -> GameState {
         let mut entries: Vec<&str> = fen.split(" ").collect();
         assert_eq!(entries.len(), 21);
@@ -97,7 +228,7 @@ impl GameState {
                 pieces[j][i] = entries.remove(0).parse::<u128>().unwrap();
             }
         }
-        let hash = GameState::calculate_hash(&pieces, color_to_move, &beetle_stack);
+        let hash = GameState::calculate_hash(&pieces, color_to_move, &beetle_stack, ply);
         let mut occupied = [0u128; 2];
         for index in 0..128 {
             if (beetle_stack[0][RED as usize] | beetle_stack[0][BLUE as usize]) & 1u128 << index > 0
@@ -135,7 +266,7 @@ impl GameState {
                 }
             }
         }
-        GameState {
+        let res = GameState {
             ply,
             color_to_move,
             pieces,
@@ -143,12 +274,15 @@ impl GameState {
             hash,
             beetle_stack,
             obstacles,
-        }
+        };
+        debug_assert!(res.check_integrity());
+        res
     }
+
     pub fn new() -> GameState {
         let pieces = [[0u128; 2]; 5];
         let beetle_stack = [[0u128; 2]; 4];
-        let hash = GameState::calculate_hash(&pieces, RED, &beetle_stack);
+        let hash = GameState::calculate_hash(&pieces, RED, &beetle_stack, 0);
         GameState {
             ply: 0,
             color_to_move: RED,
@@ -159,6 +293,7 @@ impl GameState {
             hash,
         }
     }
+
     pub fn random() -> GameState {
         let mut res = GameState::new();
         let mut rng = rand::thread_rng();
@@ -167,8 +302,10 @@ impl GameState {
             obstacles |= GameState::valid_occ_field_bb(&mut rng);
         }
         res.obstacles = obstacles;
+        debug_assert!(res.check_integrity());
         res
     }
+
     fn valid_occ_field_bb(rng: &mut ThreadRng) -> u128 {
         loop {
             let pos = rng.gen_range(0, 121);
@@ -177,10 +314,12 @@ impl GameState {
             }
         }
     }
+
     pub fn calculate_hash(
         pieces: &[[u128; 2]; 5],
         color_to_move: Color,
         beetle_stack: &[[u128; 2]; 4],
+        ply: u8,
     ) -> u64 {
         let mut hash = 0u64;
         if color_to_move == RED {
@@ -206,7 +345,28 @@ impl GameState {
                 }
             }
         }
+        if ply >= 6 {
+            hash ^= PLY6_HASH;
+        }
         hash
+    }
+
+    #[inline(always)]
+    pub fn amount_of_beetles_from_color(&self, color: Color) -> usize {
+        (self.pieces[PieceType::BEETLE as usize][color as usize].count_ones()
+            + self.beetle_stack[0][color as usize].count_ones()
+            + self.beetle_stack[1][color as usize].count_ones()
+            + self.beetle_stack[2][color as usize].count_ones()
+            + self.beetle_stack[3][color as usize].count_ones()) as usize
+    }
+
+    #[inline(always)]
+    pub fn pieces_from_color(&self, color: Color) -> u128 {
+        self.pieces[PieceType::BEE as usize][color as usize]
+            | self.pieces[PieceType::SPIDER as usize][color as usize]
+            | self.pieces[PieceType::GRASSHOPPER as usize][color as usize]
+            | self.pieces[PieceType::BEETLE as usize][color as usize]
+            | self.pieces[PieceType::ANT as usize][color as usize]
     }
 
     pub fn field_type(&self, index: usize) -> FieldType {
@@ -228,34 +388,12 @@ impl GameState {
         }
     }
 
-    #[inline(always)]
-    pub fn pieces_from_color(&self, color: Color) -> u128 {
-        self.pieces[PieceType::BEE as usize][color as usize]
-            | self.pieces[PieceType::SPIDER as usize][color as usize]
-            | self.pieces[PieceType::GRASSHOPPER as usize][color as usize]
-            | self.pieces[PieceType::BEETLE as usize][color as usize]
-            | self.pieces[PieceType::ANT as usize][color as usize]
-    }
-    #[inline(always)]
-    pub fn occupied(&self) -> u128 {
-        self.occupied[Color::RED as usize] | self.occupied[Color::BLUE as usize]
-    }
-
-    #[inline(always)]
-    pub fn is_on_stack(&self, index: usize) -> bool {
-        self.is_on_colored_stack(index, Color::RED) || self.is_on_colored_stack(index, Color::BLUE)
-    }
-
-    #[inline(always)]
-    pub fn is_on_colored_stack(&self, index: usize, color: Color) -> bool {
-        (1u128 << index) & self.beetle_stack[0][color as usize] != 0
-    }
-
     pub fn bb_to_string(bb: u128) -> String {
         let mut state = GameState::new();
         state.obstacles = bb;
         format!("{}", state)
     }
+
     #[inline(always)]
     pub fn make_action(&mut self, action: Action) {
         match action {
@@ -404,14 +542,13 @@ impl GameState {
                     PIECE_HASH[piece_type as usize][self.color_to_move as usize][to as usize];
             }
         };
+        if self.ply == 5 {
+            self.hash ^= PLY6_HASH;
+        }
         self.ply += 1;
         self.color_to_move = self.color_to_move.swap();
         self.hash ^= COLOR_TO_MOVE_HASH;
-        debug_assert!(self.occupied[RED as usize] & self.occupied[BLUE as usize] == 0u128);
-        debug_assert_eq!(
-            self.hash,
-            GameState::calculate_hash(&self.pieces, self.color_to_move, &self.beetle_stack)
-        );
+        debug_assert!(self.check_integrity());
     }
 
     pub fn unmake_action(&mut self, action: Action) {
@@ -421,6 +558,9 @@ impl GameState {
             Action::SkipMove => {}
             Action::DragMove(piece_type, from, to) => {
                 self.ply -= 1;
+                if self.ply == 5 {
+                    self.hash ^= PLY6_HASH;
+                }
                 self.make_action(Action::DragMove(piece_type, to, from));
                 self.hash ^= COLOR_TO_MOVE_HASH;
                 self.color_to_move = self.color_to_move.swap();
@@ -441,11 +581,12 @@ impl GameState {
             }
         };
         self.ply -= 1;
-        debug_assert_eq!(
-            self.hash,
-            GameState::calculate_hash(&self.pieces, self.color_to_move, &self.beetle_stack)
-        );
+        if self.ply == 5 {
+            self.hash ^= PLY6_HASH;
+        }
+        debug_assert!(self.check_integrity());
     }
+
     pub fn perft_div(&self, depth: usize) -> u64 {
         self.iperft_root(depth, true)
     }
@@ -493,20 +634,6 @@ impl GameState {
             self.unmake_action(als[depth][i]);
         }
         nc
-    }
-
-    pub fn must_player_place_bee(&self) -> bool {
-        let round = self.ply / 2;
-        if round == 3 {
-            if !self.has_player_placed_bee() {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    pub fn has_player_placed_bee(&self) -> bool {
-        return self.pieces[PieceType::BEE as usize][self.color_to_move as usize] > 0;
     }
 }
 impl Display for GameState {
