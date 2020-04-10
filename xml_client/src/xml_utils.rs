@@ -101,8 +101,12 @@ impl XMLNode {
         state.obstacles = obstacles;
         state.pieces = pieces;
         state.beetle_stack = beetle_stack;
-        state.hash =
-            GameState::calculate_hash(&state.pieces, state.color_to_move, &state.beetle_stack);
+        state.hash = GameState::calculate_hash(
+            &state.pieces,
+            state.color_to_move,
+            &state.beetle_stack,
+            state.ply,
+        );
         return state;
     }
 
