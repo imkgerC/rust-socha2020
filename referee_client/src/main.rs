@@ -1,8 +1,10 @@
 use game_sdk::{ClientListener, GameState};
 use player::search::Searcher;
+use player::timecontrol::Timecontrol;
 use std::io;
+
 fn main() {
-    let mut searcher = Searcher::new();
+    let mut searcher = Searcher::with_tc(Timecontrol::MoveTime(500));
     let stdin = io::stdin();
     let mut line = String::new();
     loop {

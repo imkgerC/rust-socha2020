@@ -20,6 +20,7 @@ pub struct Searcher {
     pub stop_flag: bool,
     pub cache: Cache,
     pub root_plies_played: u8,
+    pub tc: Timecontrol,
 }
 
 impl Searcher {
@@ -34,10 +35,25 @@ impl Searcher {
             stop_flag: false,
             cache: Cache::with_size(HASH_SIZE),
             root_plies_played: 0,
+            tc: Timecontrol::MoveTime(1800),
+        }
+    }
+    pub fn with_tc(tc: Timecontrol) -> Self {
+        Searcher {
+            nodes_searched: 0,
+            als: ActionListStack::with_size(60),
+            start_time: None,
+            principal_variation_table: ActionList::default(),
+            principal_variation_hashtable: Vec::with_capacity(60),
+            pv_table: ActionListStack::with_size(60),
+            stop_flag: false,
+            cache: Cache::with_size(HASH_SIZE),
+            root_plies_played: 0,
+            tc,
         }
     }
 
-    pub fn search_move(&mut self, game_state: &GameState, tc: Timecontrol) -> Action {
+    pub fn search_move(&mut self, game_state: &GameState) -> Action {
         println!("Searching state w/ fen:{}", game_state.to_fen());
         let mut al = ActionList::default();
         calculate_legal_moves(&game_state, &mut al);
@@ -60,7 +76,6 @@ impl Searcher {
                 depth,
                 STANDARD_SCORE,
                 -STANDARD_SCORE,
-                tc,
             );
             if self.stop_flag {
                 break;
@@ -97,7 +112,7 @@ impl Searcher {
 }
 impl ClientListener for Searcher {
     fn on_move_request(&mut self, state: &GameState) -> Action {
-        self.search_move(state, Timecontrol::MoveTime(1800))
+        self.search_move(state)
     }
 }
 pub fn principal_variation_search(
@@ -107,7 +122,6 @@ pub fn principal_variation_search(
     depth_left: usize,
     mut alpha: i16,
     mut beta: i16,
-    tc: Timecontrol,
 ) -> i16 {
     searcher.nodes_searched += 1;
     //clear_pv
@@ -122,7 +136,7 @@ pub fn principal_variation_search(
     let original_alpha = alpha;
 
     if searcher.nodes_searched % 4096 == 0 {
-        if tc.time_over(
+        if searcher.tc.time_over(
             searcher
                 .start_time
                 .expect("No start time set")
@@ -236,7 +250,6 @@ pub fn principal_variation_search(
                 depth_left - 1,
                 -beta,
                 -alpha,
-                tc,
             )
         } else {
             //Null window
@@ -247,7 +260,6 @@ pub fn principal_variation_search(
                 depth_left - 1,
                 -alpha - 1,
                 -alpha,
-                tc,
             );
             if following_score > alpha {
                 following_score = -principal_variation_search(
@@ -257,7 +269,6 @@ pub fn principal_variation_search(
                     depth_left - 1,
                     -beta,
                     -alpha,
-                    tc,
                 );
             }
             following_score

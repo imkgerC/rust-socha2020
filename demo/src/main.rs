@@ -23,7 +23,7 @@ fn main() {
     for i in 1..=5 {
         println!("{}: {}", i, state.perft(i));
     }
-    let mut searcher = Searcher::new();
+    let mut searcher = Searcher::with_tc(Timecontrol::Infinite);
     let state = GameState::from_fen("37 BLUE 288230651063173120 0 72057594037927936 0 0 72057594037927936 0 0 0 72057594037927936 35184376285184 1 140754668224512 103087603712 65536 8204 2 16 147573952589676412928".to_owned());
-    searcher.search_move(&state, Timecontrol::Infinite);
+    searcher.search_move(&state);
 }
