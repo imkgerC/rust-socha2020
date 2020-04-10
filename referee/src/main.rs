@@ -2,6 +2,8 @@ use crate::engine::Engine;
 use crate::interprocess_communication::print_command;
 use crate::logging::Log;
 use crate::queue::ThreadSafeQueue;
+use game_sdk::bitboard::constants::VALID_FIELDS;
+use game_sdk::bitboard::get_neighbours;
 use game_sdk::gamerules::{calculate_legal_moves, get_result, is_game_finished};
 use game_sdk::{Action, ActionList, Color, GameState, PieceType};
 use rand::prelude::ThreadRng;
@@ -202,7 +204,11 @@ pub fn get_random_setmove(al: &ActionList, rng: &mut ThreadRng) -> Action {
     for i in 0..al.size {
         if let Action::SetMove(PieceType::BEE, _) = al[i] {
         } else {
-            al2.push(al[i]);
+            if let Action::SetMove(_, target) = al[i] {
+                if (get_neighbours(1u128 << target)).count_ones() == 6 {
+                    al2.push(al[i]);
+                }
+            }
         }
     }
     if al2.size == 0 {
