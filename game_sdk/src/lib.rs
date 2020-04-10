@@ -6,6 +6,7 @@ mod fieldtype;
 pub mod gamerules;
 mod gamestate;
 pub(crate) mod hashing;
+pub mod misc;
 pub mod neighbor_magic;
 mod piece_type;
 pub use action::Action;
@@ -18,22 +19,13 @@ pub use piece_type::PieceType;
 
 #[cfg(test)]
 mod tests {
-    use crate::GameState;
+    use crate::misc::FenReader;
 
     #[test]
     fn perftsuite() {
-        let perft_contents = std::fs::read_to_string("../perft_values").unwrap();
-        let perft_contents = perft_contents.replace("\r", "");
-        let lines: Vec<&str> = perft_contents.split("\n").collect();
-        for line in lines {
-            let s: Vec<&str> = line.split("/").collect();
-            let fen = s[0];
-            let perfts: Vec<&str> = s[1].split(" ").collect();
-            let state = GameState::from_fen(fen.to_owned());
+        for (state, perfts) in FenReader::from_path("../perft_values").into_iter() {
             for perft in perfts.iter().enumerate() {
-                let depth = perft.0 + 1;
-                let value = perft.1.parse::<u64>().unwrap();
-                assert_eq!(state.perft(depth), value)
+                assert_eq!(state.perft(perft.0 + 1), *perft.1)
             }
         }
     }
