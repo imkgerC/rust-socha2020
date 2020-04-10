@@ -1,8 +1,8 @@
 use crate::action::Action;
 use crate::actionlist::ActionListStack;
-use crate::bitboard::constants::VALID_FIELDS;
+use crate::bitboard::{constants::VALID_FIELDS, get_neighbours};
 use crate::fieldtype::FieldType;
-use crate::gamerules::{calculate_legal_moves, is_game_finished};
+use crate::gamerules::{are_connected_in_swarm, calculate_legal_moves, is_game_finished};
 use crate::gamestate::Color::{BLUE, RED};
 use crate::hashing::{BEETLE_STACK_HASH, COLOR_TO_MOVE_HASH, PIECE_HASH, PLY6_HASH};
 use crate::piece_type::{PieceType, PIECETYPE_VARIANTS};
@@ -45,6 +45,7 @@ pub struct GameState {
     pub beetle_stack: [[u128; 2]; 4],
     pub obstacles: u128,
     pub hash: u64,
+    pub pinneds: u128,
 }
 impl GameState {
     #[inline(always)]
@@ -174,6 +175,30 @@ impl GameState {
         {
             return false;
         }
+
+        // check pinneds
+        let mut clone = self.clone();
+        clone.recalculate_pinneds();
+        if clone.pinneds != self.pinneds {
+            println!("{}", GameState::bb_to_string(clone.pinneds));
+            println!("{}", GameState::bb_to_string(self.pinneds));
+            println!("{}", self);
+            panic!("stop");
+        }
+        let mut it = self.occupied();
+        while it > 0 {
+            let current_index = it.trailing_zeros();
+            let current = 1 << current_index;
+            it ^= current;
+            let pin = !are_connected_in_swarm(
+                self.occupied() ^ current,
+                get_neighbours(current) & self.occupied(),
+            );
+            if pin != (self.pinneds & current > 0) {
+                return false;
+            }
+        }
+
         true
     }
 
@@ -266,7 +291,7 @@ impl GameState {
                 }
             }
         }
-        let res = GameState {
+        let mut res = GameState {
             ply,
             color_to_move,
             pieces,
@@ -274,9 +299,25 @@ impl GameState {
             hash,
             beetle_stack,
             obstacles,
+            pinneds: 0,
         };
+        res.recalculate_pinneds();
         debug_assert!(res.check_integrity());
         res
+    }
+
+    pub fn recalculate_pinneds(&mut self) {
+        let mut it = self.occupied();
+        self.pinneds = 0;
+        while it > 0 {
+            let current_index = it.trailing_zeros();
+            let current = 1 << current_index;
+            it ^= current;
+            let occupied = self.occupied() ^ current;
+            if !are_connected_in_swarm(occupied, get_neighbours(current) & occupied) {
+                self.pinneds |= current;
+            }
+        }
     }
 
     pub fn new() -> GameState {
@@ -291,6 +332,7 @@ impl GameState {
             beetle_stack,
             obstacles: 0,
             hash,
+            pinneds: 0,
         }
     }
 
@@ -396,6 +438,7 @@ impl GameState {
 
     #[inline(always)]
     pub fn make_action(&mut self, action: Action) {
+        // println!("{:?}", action);
         match action {
             Action::SkipMove => {}
             Action::DragMove(piece_type, from, to) => {
@@ -420,6 +463,7 @@ impl GameState {
                     self.occupied[self.color_to_move as usize] ^= 1 << to;
                     self.hash ^=
                         PIECE_HASH[piece_type as usize][self.color_to_move as usize][to as usize];
+                    self.fill_pins((1 << from) | (1 << to));
                 } else {
                     let from_bit = 1 << from;
                     if self.is_on_stack(from as usize) {
@@ -496,6 +540,7 @@ impl GameState {
                         self.occupied[self.color_to_move as usize] ^= from_bit;
                         self.hash ^= PIECE_HASH[PieceType::BEETLE as usize]
                             [self.color_to_move as usize][from as usize];
+                        self.fill_pins(1 << from);
                     }
 
                     let to_bit = 1 << to;
@@ -531,6 +576,7 @@ impl GameState {
                         self.occupied[self.color_to_move as usize] ^= to_bit;
                         self.hash ^= PIECE_HASH[PieceType::BEETLE as usize]
                             [self.color_to_move as usize][to as usize];
+                        self.fill_pins(1 << to);
                     }
                 }
             }
@@ -540,6 +586,8 @@ impl GameState {
                 self.occupied[self.color_to_move as usize] ^= 1 << to;
                 self.hash ^=
                     PIECE_HASH[piece_type as usize][self.color_to_move as usize][to as usize];
+
+                self.fill_pins(1 << to);
             }
         };
         if self.ply == 5 {
@@ -548,10 +596,39 @@ impl GameState {
         self.ply += 1;
         self.color_to_move = self.color_to_move.swap();
         self.hash ^= COLOR_TO_MOVE_HASH;
+        self.recalculate_pinneds();
         debug_assert!(self.check_integrity());
     }
 
+    pub fn fill_pins(&mut self, field: u128) {
+        return;
+        self.pinneds &= !field;
+        let mut to_check = get_neighbours(field);
+        to_check |= get_neighbours(to_check);
+        let mut checked = 0;
+        while to_check > 0 {
+            let current_index = to_check.trailing_zeros();
+            let current = 1 << current_index;
+            to_check ^= current;
+            checked ^= current;
+            let now_pin = !are_connected_in_swarm(
+                self.occupied() ^ current,
+                get_neighbours(current) & self.occupied(),
+            );
+            let before_pin = (self.pinneds & current) != 0;
+            /*if current_index == 68 {
+                println!("{} {}", now_pin, before_pin);
+                println!("{}", self);
+            }*/
+            if now_pin != before_pin {
+                self.pinneds ^= current;
+                to_check |= get_neighbours(current) & !checked & self.occupied();
+            }
+        }
+    }
+
     pub fn unmake_action(&mut self, action: Action) {
+        // println!("u{:?}", action);
         self.color_to_move = self.color_to_move.swap();
         self.hash ^= COLOR_TO_MOVE_HASH;
         match action {
@@ -578,6 +655,8 @@ impl GameState {
                 self.occupied[self.color_to_move as usize] ^= 1 << to;
                 self.hash ^=
                     PIECE_HASH[piece_type as usize][self.color_to_move as usize][to as usize];
+                self.fill_pins(1 << to);
+                self.recalculate_pinneds();
             }
         };
         self.ply -= 1;

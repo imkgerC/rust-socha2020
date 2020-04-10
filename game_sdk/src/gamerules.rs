@@ -193,7 +193,10 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
             | game_state.occupied[Color::BLUE as usize])
             ^ from_bit;
         let neighbours = bitboard::get_neighbours(from_bit) & occupied;
-        if !are_connected_in_swarm(occupied, neighbours) {
+        /*if !are_connected_in_swarm(occupied, neighbours) {
+            continue;
+        }*/
+        if from_bit & game_state.pinneds != 0 {
             continue;
         }
         if from_bit & game_state.pieces[PieceType::BEE as usize][game_state.color_to_move as usize]
@@ -405,7 +408,7 @@ fn get_beetle_accessible_neighbours(occupied: u128, obstacles: u128, field: u128
 
 #[inline(always)]
 pub fn are_connected_in_swarm(occupied: u128, to_check: u128) -> bool {
-    if to_check.count_ones() == 1 {
+    if to_check.count_ones() <= 1 {
         return true;
     }
     let mut visited = 1u128 << to_check.trailing_zeros();
