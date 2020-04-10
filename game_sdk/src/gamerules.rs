@@ -1,7 +1,9 @@
 use crate::action::Action;
 use crate::actionlist::ActionList;
 use crate::bitboard;
-use crate::bitboard::get_neighbours;
+use crate::bitboard::{
+    get_neighbours, shift_east, shift_noea, shift_nowe, shift_soea, shift_sowe, shift_west,
+};
 use crate::gamestate::Color;
 use crate::gamestate::Color::{BLUE, RED};
 use crate::gamestate::GameState;
@@ -45,6 +47,36 @@ impl GameState {
         let next_to_own = bitboard::get_neighbours(self.occupied[color as usize]);
         let next_to_other = bitboard::get_neighbours(self.occupied[color.swap() as usize]);
         next_to_own & !(next_to_other | self.obstacles | self.occupied())
+    }
+
+    #[inline(always)]
+    pub fn get_pinners(&self) -> u128 {
+        let occ = self.occupied();
+        let has_west = occ & shift_east(occ);
+        let has_sowe = occ & shift_noea(occ);
+        let has_soea = occ & shift_nowe(occ);
+        let has_east = occ & shift_west(occ);
+        let has_noea = occ & shift_sowe(occ);
+        let has_nowe = occ & shift_soea(occ);
+        let res = has_west & !has_sowe & !has_soea & !has_east & !has_noea & !has_nowe
+            | !has_west & has_sowe & !has_soea & !has_east & !has_noea & !has_nowe
+            | !has_west & !has_sowe & has_soea & !has_east & !has_noea & !has_nowe
+            | !has_west & !has_sowe & !has_soea & has_east & !has_noea & !has_nowe
+            | !has_west & !has_sowe & !has_soea & !has_east & has_noea & !has_nowe
+            | !has_west & !has_sowe & !has_soea & !has_east & !has_noea & has_nowe;
+        debug_assert_eq!(res, {
+            let mut iter = occ;
+            let mut pinners = 0u128;
+            while iter > 0 {
+                let occ_index = occ.trailing_zeros();
+                if (get_neighbours(1u128 << occ_index) & occ).count_ones() == 1 {
+                    pinners |= 1u128 << occ_index;
+                }
+                iter ^= 1u128 << occ_index;
+            }
+            pinners
+        });
+        res
     }
 }
 pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
@@ -371,6 +403,7 @@ fn get_beetle_accessible_neighbours(occupied: u128, obstacles: u128, field: u128
     return ret & !obstacles;
 }
 
+#[inline(always)]
 pub fn are_connected_in_swarm(occupied: u128, to_check: u128) -> bool {
     if to_check.count_ones() == 1 {
         return true;
