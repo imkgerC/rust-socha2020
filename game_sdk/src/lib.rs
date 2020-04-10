@@ -24,6 +24,11 @@ mod tests {
     #[test]
     fn perftsuite() {
         for (state, perfts) in FenReader::from_path("../perft_values").into_iter() {
+            let perfts: Vec<u64> = perfts
+                .split(" ")
+                .into_iter()
+                .map(|s| s.replace("\r", "").parse::<u64>().unwrap())
+                .collect();
             for perft in perfts.iter().enumerate() {
                 assert_eq!(state.perft(perft.0 + 1), *perft.1)
             }

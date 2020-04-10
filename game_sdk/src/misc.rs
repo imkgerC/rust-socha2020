@@ -1,4 +1,5 @@
-use crate::GameState;
+use crate::gamerules::{get_result, is_game_finished};
+use crate::{Color, GameState};
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read};
 
@@ -11,9 +12,12 @@ impl FenReader {
             .expect("Invalid path");
         FenReader(file)
     }
+    pub fn into_game_reader(self) -> GameReader {
+        GameReader(self.into_iter())
+    }
 }
 impl IntoIterator for FenReader {
-    type Item = (GameState, Vec<u64>);
+    type Item = (GameState, String);
     type IntoIter = FenReaderState;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -31,23 +35,49 @@ pub struct FenReaderState {
     lines: Vec<String>,
 }
 impl Iterator for FenReaderState {
-    type Item = (GameState, Vec<u64>);
+    type Item = (GameState, String);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let line = self.lines.pop();
-        if line.is_some() {
-            let line = line.unwrap();
-            let s: Vec<&str> = line.split("/").collect();
+        if !self.lines.is_empty() {
+            let line = self.lines.remove(0);
+            let s: Vec<&str> = line.split("//").collect();
             let fen = s[0];
-            let perfts: Vec<u64> = s[1]
-                .split(" ")
-                .into_iter()
-                .map(|s| s.replace("\r", "").parse::<u64>().unwrap())
-                .collect();
-            let state = GameState::from_fen(fen.to_owned());
-            Some((state, perfts))
+            if s[0].is_empty() {
+                self.next()
+            } else {
+                let state = GameState::from_fen(fen.to_owned());
+                Some((state, s[1].to_owned()))
+            }
         } else {
             None
+        }
+    }
+}
+pub struct GameReader(FenReaderState);
+impl Iterator for GameReader {
+    type Item = (Vec<GameState>, Option<Color>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut states = Vec::with_capacity(60);
+        let mut result = None;
+        while let Some((state, desc)) = self.0.next() {
+            if is_game_finished(&state) {
+                result = get_result(&state);
+                break;
+            }
+            let search_res = desc
+                .replace("Some(", "")
+                .replace(")", "")
+                .parse::<i16>()
+                .expect(desc.as_str());
+            if search_res.abs() < 29900 {
+                states.push(state);
+            }
+        }
+        if states.is_empty() {
+            None
+        } else {
+            Some((states, result))
         }
     }
 }

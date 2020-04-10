@@ -4,7 +4,8 @@ members = ["player",
            "referee",
            "xml_client",
            "demo",
-           "referee_client"]
+           "referee_client",
+           "tuning"]
 
 [profile.release]
 opt-level = 3
