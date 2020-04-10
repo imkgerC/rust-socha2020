@@ -103,6 +103,52 @@ pub fn get_accessible_neighbors(occupied: u128, obstacles: u128, field: u128) ->
         (neighbors << (field_index - 12)) & VALID_FIELDS
     }
 }
+pub fn get_accessible_neighbors_set(occupied: u128, obstacles: u128, fields: u128) -> u128 {
+    let blocked = occupied | obstacles;
+    let free = !blocked;
+
+    let nowe = bitboard::shift_nowe(fields);
+    let noea = bitboard::shift_noea(fields);
+    let sowe = bitboard::shift_sowe(fields);
+    let soea = bitboard::shift_soea(fields);
+    let east = bitboard::shift_east(fields);
+    let west = bitboard::shift_west(fields);
+
+    let nowe_blocked = nowe & blocked;
+    let noea_blocked = noea & blocked;
+    let sowe_blocked = sowe & blocked;
+    let soea_blocked = soea & blocked;
+    let east_blocked = east & blocked;
+    let west_blocked = west & blocked;
+
+    let nowe_occupied = nowe & occupied;
+    let noea_occupied = noea & occupied;
+    let sowe_occupied = sowe & occupied;
+    let soea_occupied = soea & occupied;
+    let east_occupied = east & occupied;
+    let west_occupied = west & occupied;
+
+    let nowe_checked = nowe
+        & ((!bitboard::shift_west(noea_blocked) & bitboard::shift_noea(west_occupied))
+            | (!bitboard::shift_noea(west_blocked) & bitboard::shift_west(noea_occupied)));
+    let noea_checked = noea
+        & ((!bitboard::shift_east(nowe_blocked) & bitboard::shift_nowe(east_occupied))
+            | (!bitboard::shift_nowe(east_blocked) & bitboard::shift_east(nowe_occupied)));
+    let west_checked = west
+        & ((!bitboard::shift_sowe(nowe_blocked) & bitboard::shift_nowe(sowe_occupied))
+            | (!bitboard::shift_nowe(sowe_blocked) & bitboard::shift_sowe(nowe_occupied)));
+    let east_checked = east
+        & ((!bitboard::shift_soea(noea_blocked) & bitboard::shift_noea(soea_occupied))
+            | (!bitboard::shift_noea(soea_blocked) & bitboard::shift_soea(noea_occupied)));
+    let sowe_checked = sowe
+        & ((!bitboard::shift_soea(west_blocked) & bitboard::shift_west(soea_occupied))
+            | (!bitboard::shift_west(soea_blocked) & bitboard::shift_soea(west_occupied)));
+    let soea_checked = soea
+        & ((!bitboard::shift_sowe(east_blocked) & bitboard::shift_east(sowe_occupied))
+            | (!bitboard::shift_east(sowe_blocked) & bitboard::shift_sowe(east_occupied)));
+
+    (nowe_checked | noea_checked | west_checked | east_checked | sowe_checked | soea_checked) & free
+}
 pub fn get_accessible_neighbors_slow(occupied: u128, obstacles: u128, field: u128) -> u128 {
     let free = !(occupied | obstacles);
     let mut ret = 0;

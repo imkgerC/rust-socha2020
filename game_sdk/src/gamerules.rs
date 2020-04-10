@@ -5,7 +5,7 @@ use crate::bitboard::get_neighbours;
 use crate::gamestate::Color;
 use crate::gamestate::Color::{BLUE, RED};
 use crate::gamestate::GameState;
-use crate::neighbor_magic::get_accessible_neighbors;
+use crate::neighbor_magic::{get_accessible_neighbors, get_accessible_neighbors_set};
 use crate::piece_type::PieceType;
 
 pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
@@ -262,14 +262,11 @@ fn get_grasshopper_destinations(occupied: u128, obstacles: u128, from: u128) -> 
 }
 
 fn get_ant_destinations(occupied: u128, obstacles: u128, current_field: u128) -> u128 {
-    let mut candidates = get_accessible_neighbors(occupied, obstacles, current_field);
-    let mut destinations = candidates;
-    while candidates > 0 {
-        let current = candidates.trailing_zeros();
-        let current_field = 1 << current;
-        candidates ^= current_field;
-        candidates |= get_accessible_neighbors(occupied, obstacles, current_field) & !destinations;
-        destinations |= candidates;
+    let mut destinations = get_accessible_neighbors(occupied, obstacles, current_field);
+    let mut old_destinations = 0;
+    while destinations != old_destinations {
+        old_destinations = destinations;
+        destinations |= get_accessible_neighbors_set(occupied, obstacles, destinations);
     }
     return destinations & !current_field;
 }
