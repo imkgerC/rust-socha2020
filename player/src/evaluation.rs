@@ -4,38 +4,14 @@ use game_sdk::{bitboard, get_accessible_neighbors, Color, GameState, PieceType};
 
 pub const COLOR_TO_MOVE: f64 = 12.0;
 pub fn evaluate(game_state: &GameState) -> i16 {
-    let occ = game_state.occupied();
     let pinners = game_state.get_pinners();
-    let mut pinned_pieces = get_neighbours(pinners) & occ;
-    let mut already_checked = pinners;
-    let mut it = 0u128;
-    while it & !already_checked > 0 {
-        let index = (it & !already_checked).trailing_zeros() as usize;
-        let mut possible_pinned = get_neighbours(1u128 << index) & !already_checked & occ;
-        already_checked |= 1u128 << index;
-        while possible_pinned > 0 {
-            let i = possible_pinned.trailing_zeros() as usize;
-            possible_pinned ^= 1u128 << i;
-            let neighbors = get_neighbours(1u128 << i) & occ;
-            if neighbors.count_ones() == 2 {
-                let n1 = neighbors.trailing_zeros();
-                let neighborsn1 = get_neighbours(1u128 << n1) & neighbors;
-                if neighborsn1 == 0 {
-                    pinned_pieces |= 1u128 << i;
-                    it |= 1u128 << i;
-                    continue;
-                }
-            }
-            already_checked |= 1u128 << i;
-        }
-    }
-    (evaluate_color(game_state, Color::RED, pinners, pinned_pieces)
-        - evaluate_color(game_state, Color::BLUE, pinners, pinned_pieces))
+    (evaluate_color(game_state, Color::RED, pinners)
+        - evaluate_color(game_state, Color::BLUE, pinners))
     .round() as i16
 }
 
 #[inline(always)]
-pub fn evaluate_color(game_state: &GameState, color: Color, pinners: u128, pinned: u128) -> f64 {
+pub fn evaluate_color(game_state: &GameState, color: Color, pinners: u128) -> f64 {
     let occupied = game_state.occupied();
     let obstacles = game_state.obstacles;
 
@@ -64,19 +40,47 @@ pub fn evaluate_color(game_state: &GameState, color: Color, pinners: u128, pinne
     } else {
         0.
     };
+
     let pins_enemies =
         get_neighbours(get_neighbours(pinners) & game_state.occupied[color.swap() as usize])
             & pinners;
     let ant_pinning_enemies = (pins_enemies
         & game_state.pieces[PieceType::ANT as usize][color as usize])
         .count_ones() as f64;
-    //let spider_pinning_enemies = (pins_enemies & game_state.pieces[PieceType::SPIDER as usize][color as usize]).count_ones() as f64;
-    //let grasshopper_pinning_enemies = (pins_enemies & game_state.pieces[PieceType::GRASSHOPPER as usize][color as usize]).count_ones() as f64;
-    let pinned_pieces = (pinned & game_state.pieces_from_color(color)).count_ones() as f64;
+    let spider_pinning_enemies = (pins_enemies
+        & game_state.pieces[PieceType::SPIDER as usize][color as usize])
+        .count_ones() as f64;
+    let grasshopper_pinning_enemies = (pins_enemies
+        & game_state.pieces[PieceType::GRASSHOPPER as usize][color as usize])
+        .count_ones() as f64;
+
     let mut res = 0.;
+    //*-*-*-*-*-*-*-*
+    //Pinned pieces
+    pub const PINNED_MALUS: [f64; 5] = [-6.0, -8.0, -7.0, -5.0, -5.0];
+    for pt in [
+        PieceType::BEE,
+        PieceType::ANT,
+        PieceType::BEETLE,
+        PieceType::GRASSHOPPER,
+        PieceType::SPIDER,
+    ]
+    .iter()
+    {
+        let mut pieces = game_state.pieces[*pt as usize][color as usize];
+        while pieces > 0 {
+            let piece_index = pieces.trailing_zeros();
+            if !can_be_removed(1u128 << piece_index, occupied) {
+                res += PINNED_MALUS[*pt as usize];
+            }
+            pieces ^= 1u128 << piece_index;
+        }
+    }
+
     res += 12. * free_bee_fields + 4. * bee_moves + our_set_fields - 30. * beetle_on_bee
-        + 6. * ant_pinning_enemies
-        - 6. * pinned_pieces;
+        + 4. * ant_pinning_enemies
+        + 3. * spider_pinning_enemies
+        + 3. * grasshopper_pinning_enemies;
     res += if game_state.color_to_move == color {
         COLOR_TO_MOVE
     } else {
