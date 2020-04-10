@@ -28,7 +28,8 @@ pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
             & !get_neighbours(game_state.occupied[color.swap() as usize]),
     ))
     .count_ones() as f64;
-    let beetle_on_bee = if game_state.is_on_stack(bee_index)
+    let beetle_on_bee = if bee_index <= 120
+        && game_state.is_on_stack(bee_index)
         && (game_state.occupied[color.swap() as usize] & bee) > 0
     {
         1.
@@ -66,9 +67,9 @@ pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
         }
     }
     let mut res = 0.;
-    res += (12. * free_bee_fields + 4. * bee_moves + our_set_fields - 30. * beetle_on_bee
+    res += 12. * free_bee_fields + 4. * bee_moves + our_set_fields - 30. * beetle_on_bee
         + 6. * ant_pinning_enemies
-        - 6. * pinned_pieces);
+        - 6. * pinned_pieces;
     res += if game_state.color_to_move == color {
         COLOR_TO_MOVE
     } else {

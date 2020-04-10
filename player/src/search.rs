@@ -112,7 +112,7 @@ pub fn principal_variation_search(
     searcher.nodes_searched += 1;
     //clear_pv
     searcher.pv_table[current_depth].clear();
-    let root = current_depth == 0;
+    let _root = current_depth == 0;
     let pv_node = beta > 1 + alpha;
     let color = if game_state.color_to_move == Color::RED {
         1
