@@ -1,6 +1,6 @@
 use crate::interprocess_communication::{block_on_output, print_command};
 use crate::logging::Log;
-use game_sdk::{Action, GameState};
+use game_sdk::{Action, GameState, MATE_IN_MAX};
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 use std::time::Instant;
 
@@ -65,6 +65,7 @@ pub struct Engine {
     pub draws: usize,
     pub losses: usize,
     pub disqs: usize,
+    pub blunders: usize,
     pub stats: EngineStats,
 }
 impl Engine {
@@ -87,6 +88,7 @@ impl Engine {
         self.draws += other.draws;
         self.losses += other.losses;
         self.disqs += other.disqs;
+        self.blunders += other.blunders;
     }
 
     pub fn get_elo_gain(&self) -> (String, String, f64) {
@@ -106,7 +108,7 @@ impl Engine {
         };
         (
             format!(
-                "{:40} {:.2}   +/- {:.2}   +{}   ={}   -{}  sc {:.1}%",
+                "{:25} {:.2}   +/- {:.2}   +{}   ={}   -{}  sc {:.1}%",
                 self.name,
                 elo_gain,
                 elo_bounds,
@@ -117,12 +119,13 @@ impl Engine {
                     / (self.wins + self.draws + self.losses) as f64,
             ),
             format!(
-                "{:40} disq {} dep {:.2} nps {:.0} time {:.0}",
+                "{:25} disq {} dep {:.2} nps {:.0} time {:.0} blunders {}",
                 self.name,
                 self.disqs,
                 self.stats.avg_depth,
                 self.stats.avg_nps,
-                self.stats.avg_timeused
+                self.stats.avg_timeused,
+                self.blunders
             ),
             elo_gain,
         )
@@ -138,6 +141,7 @@ impl Engine {
             draws: 0,
             losses: 0,
             disqs: 0,
+            blunders: 0,
             stats: EngineStats::default(),
         }
     }
@@ -151,7 +155,7 @@ impl Engine {
         stdout: ChildStdout,
         stderr: &mut ChildStderr,
         engine_log: &mut Log,
-    ) -> (Option<Action>, Option<i16>, ChildStdout) {
+    ) -> (Option<Action>, Option<i16>, Option<bool>, ChildStdout) {
         let request = format!("requestmove {}\n", game_state.to_fen());
         let now = Instant::now();
         print_command(stdin, request);
@@ -168,6 +172,7 @@ impl Engine {
         stats.avg_timeused = elapsed as f64;
         let mut action = None;
         let mut score = None;
+        let mut depth = None;
         let lines: Vec<&str> = output.split("\n").collect();
         lines.iter().for_each(|&line| {
             if line.starts_with("bestmove") {
@@ -184,6 +189,7 @@ impl Engine {
                         }
                         "depth" => {
                             stats.avg_depth = args[index + 1].parse::<f64>().unwrap();
+                            depth = Some(args[index + 1].parse::<u8>().unwrap());
                             index += 2;
                         }
                         "score" => {
@@ -197,7 +203,12 @@ impl Engine {
             ()
         });
         self.stats.add(stats);
-        (action, score, stdout)
+        let saw_to_end = if depth.is_some() && score.is_some() {
+            Some(depth.unwrap() + game_state.ply >= 60 || score.unwrap().abs() >= MATE_IN_MAX)
+        } else {
+            None
+        };
+        (action, score, saw_to_end, stdout)
     }
 }
 pub fn get_elo_gain(p_a: f64) -> f64 {

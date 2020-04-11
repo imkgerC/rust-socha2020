@@ -4,11 +4,9 @@ use crate::moveordering::{MoveOrderer, STAGES};
 use crate::timecontrol::Timecontrol;
 use game_sdk::actionlist::ActionListStack;
 use game_sdk::gamerules::{calculate_legal_moves, get_result, is_game_finished};
-use game_sdk::{Action, ActionList, ClientListener, Color, GameState};
+use game_sdk::{Action, ActionList, ClientListener, Color, GameState, MATED_IN_MAX, MATE_IN_MAX};
 use std::time::Instant;
 
-pub const MATE_IN_MAX: i16 = 30000;
-pub const MATED_IN_MAX: i16 = -MATE_IN_MAX;
 pub const STANDARD_SCORE: i16 = std::i16::MIN + 1;
 pub const MAX_SEARCH_DEPTH: usize = 60;
 
@@ -130,12 +128,12 @@ pub fn principal_variation_search(
     current_depth: usize,
     depth_left: usize,
     mut alpha: i16,
-    mut beta: i16,
+    beta: i16,
 ) -> i16 {
     searcher.nodes_searched += 1;
     //clear_pv
     searcher.pv_table[current_depth].clear();
-    let _root = current_depth == 0;
+    let root = current_depth == 0;
     let pv_node = beta > 1 + alpha;
     let color = if game_state.color_to_move == Color::RED {
         1
@@ -201,7 +199,6 @@ pub fn principal_variation_search(
             if ce.depth >= depth_left as u8
                 && ((game_state.ply + depth_left as u8) < 60 && ce.plies + ce.depth < 60
                     || (game_state.ply + depth_left as u8) >= 60 && ce.plies + ce.depth >= 60)
-                && (!pv_node || (game_state.ply + depth_left as u8) < 60 || true)
             {
                 let tt_score = if ce.score >= MATE_IN_MAX {
                     ce.score - current_depth as i16
@@ -215,24 +212,20 @@ pub fn principal_variation_search(
                 } else {
                     0
                 };
-                if true
-                    || (game_state.ply + mate_length as u8) < 60 && ce.plies + ce.depth < 60
-                    || (game_state.ply + mate_length as u8) >= 60 && ce.plies + ce.depth >= 60
+                let draw_length = if tt_score == 0 && ce.plies + ce.depth >= 60 {
+                    Some(60 - ce.plies)
+                } else {
+                    None
+                };
+
+                if (game_state.ply + mate_length as u8) <= 60
+                    && !root
+                    && (draw_length.is_none() || game_state.ply + draw_length.unwrap() == 60)
+                    && (!ce.alpha && !ce.beta
+                        || ce.beta && tt_score >= beta
+                        || ce.alpha && alpha >= tt_score)
                 {
-                    if !ce.alpha && !ce.beta {
-                        searcher.pv_table[current_depth].clear();
-                        searcher.pv_table[current_depth].push(ce.action);
-                        return ce.score;
-                    } else {
-                        if ce.beta {
-                            alpha = alpha.max(ce.score);
-                        } else if ce.alpha {
-                            beta = beta.min(ce.score);
-                        }
-                        if alpha >= beta {
-                            return alpha;
-                        }
-                    }
+                    return tt_score;
                 }
             }
             tt_action = Some(ce.action);
@@ -348,13 +341,26 @@ pub fn principal_variation_search(
     }
     //Make TT entry
     if !searcher.stop_flag {
+        let score = if current_max_score.abs() >= MATE_IN_MAX {
+            let mate_length = MATE_IN_MAX + 60 - current_max_score.abs();
+            assert!((current_depth as i16) < mate_length);
+            let mate_length_from_now_on = mate_length - current_depth as i16;
+            (MATE_IN_MAX + 60 - mate_length_from_now_on as i16)
+                * if current_max_score >= MATE_IN_MAX {
+                    1
+                } else {
+                    -1
+                }
+        } else {
+            current_max_score
+        };
         searcher.cache.insert(
             game_state.hash,
             CacheEntry {
                 upper_hash: (game_state.hash >> 32) as u32,
                 lower_hash: (game_state.hash & 0xFFFFFFFF) as u32,
                 action: searcher.pv_table[current_depth][0],
-                score: current_max_score,
+                score,
                 alpha: current_max_score <= original_alpha,
                 beta: alpha >= beta,
                 depth: depth_left as u8,
