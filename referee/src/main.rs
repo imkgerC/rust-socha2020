@@ -24,6 +24,7 @@ pub struct Config {
     pub games: usize,
     pub engine1_path: String,
     pub engine2_path: String,
+    pub movetime: u64,
 }
 
 pub struct GameTask {
@@ -32,6 +33,7 @@ pub struct GameTask {
     pub game_id: usize,
     pub engine1: Engine,
     pub engine2: Engine,
+    pub movetime: u64,
 }
 pub struct TaskResult {
     pub game_id: usize,
@@ -46,6 +48,7 @@ fn main() {
         games: 1000,
         engine1_path: "".to_owned(),
         engine2_path: "".to_owned(),
+        movetime: 1800,
     };
     let args: Vec<String> = env::args().collect();
     let mut index = 1;
@@ -71,6 +74,12 @@ fn main() {
                 config.engine2_path = args[index + 1].to_owned();
                 index += 2;
             }
+            "-tc" | "tc" => {
+                config.movetime = args[index + 1]
+                    .parse::<u64>()
+                    .expect("Amount of movetime given is not a correct number");
+                index += 2;
+            }
             _ => {
                 index += 1;
             }
@@ -85,7 +94,7 @@ fn game_loop(config: Config) {
     let game_rounds = (config.games as f64 / 2.0).ceil() as usize;
     //Setup games
     let queue: Arc<ThreadSafeQueue<GameTask>> = Arc::new(ThreadSafeQueue::new(
-        load_random_openings(game_rounds, &engine1, &engine2),
+        load_random_openings(game_rounds, &engine1, &engine2, config.movetime),
     ));
     let games = queue.len();
     println!("Prepared {} games! Starting!", games);
@@ -142,7 +151,12 @@ fn game_loop(config: Config) {
     }
     println!("Exiting...");
 }
-pub fn load_random_openings(n: usize, engine1: &Engine, engine2: &Engine) -> Vec<GameTask> {
+pub fn load_random_openings(
+    n: usize,
+    engine1: &Engine,
+    engine2: &Engine,
+    movetime: u64,
+) -> Vec<GameTask> {
     let mut res = Vec::with_capacity(n * 2);
     let mut rng = rand::thread_rng();
     for id in 0..n {
@@ -179,6 +193,7 @@ pub fn load_random_openings(n: usize, engine1: &Engine, engine2: &Engine) -> Vec
             game_id: 2 * id,
             engine1: engine1.clone(),
             engine2: engine2.clone(),
+            movetime,
         });
         res.push(GameTask {
             opening,
@@ -186,6 +201,7 @@ pub fn load_random_openings(n: usize, engine1: &Engine, engine2: &Engine) -> Vec
             game_id: 2 * id + 1,
             engine1: engine1.clone(),
             engine2: engine2.clone(),
+            movetime,
         });
     }
     res
@@ -240,6 +256,8 @@ pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
             false,
         ),
     );
+    engine1.set_tc(&mut e1stdin, game.movetime);
+    engine2.set_tc(&mut e2stdin, game.movetime);
 
     while !is_game_finished(&state) {
         let is_engine1 = state.color_to_move == Color::RED && game.engine1_is_red

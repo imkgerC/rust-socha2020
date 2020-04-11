@@ -141,7 +141,9 @@ impl Engine {
             stats: EngineStats::default(),
         }
     }
-
+    pub fn set_tc(&self, stdin: &mut ChildStdin, movetime: u64) {
+        print_command(stdin, format!("tc {}\n", movetime));
+    }
     pub fn request_move(
         &mut self,
         game_state: &GameState,

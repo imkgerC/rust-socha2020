@@ -4,7 +4,7 @@ use player::timecontrol::Timecontrol;
 use std::io;
 
 fn main() {
-    let mut searcher = Searcher::with_tc(Timecontrol::MoveTime(500));
+    let mut searcher = Searcher::with_tc(Timecontrol::MoveTime(1800));
     let stdin = io::stdin();
     let mut line = String::new();
     loop {
@@ -19,6 +19,9 @@ fn main() {
                 let state = GameState::from_fen(fen);
                 let action = searcher.on_move_request(&state);
                 println!("bestmove {}", action.to_string());
+            }
+            "tc" => {
+                searcher.tc = Timecontrol::MoveTime(arg[1].parse::<u64>().unwrap());
             }
             _ => continue,
         }
