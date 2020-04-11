@@ -103,6 +103,7 @@ impl CacheBucket {
         }
     }
 }
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct CacheEntry {
@@ -132,6 +133,134 @@ impl CacheEntry {
             alpha: false,
             beta: false,
             plies: 0,
+        }
+    }
+}
+
+pub struct EvalCache {
+    pub entries: usize,
+    pub buckets: usize,
+    pub cache: Vec<EvalCacheBucket>,
+}
+impl EvalCache {
+    pub fn with_size(size: usize) -> EvalCache {
+        let buckets = 1024 * 1024 * size / 64;
+        let entries = buckets * 5;
+        let cache = vec![EvalCacheBucket([EvalCacheEntry::invalid(); 5]); buckets];
+        EvalCache {
+            entries,
+            buckets,
+            cache,
+        }
+    }
+    pub fn fill_status(&self) -> usize {
+        if self.entries < 1000 {
+            return 1000;
+        }
+        let mut counted_entries = 0;
+        let mut full = 0;
+        let mut index = 0;
+        while counted_entries < 500 {
+            let bucket = self.cache.get(index).unwrap();
+            index += 1;
+            full += bucket.fill_status();
+            counted_entries += 5;
+        }
+        let mut index = self.buckets - 1;
+        while counted_entries < 1000 {
+            let bucket = self.cache.get(index).unwrap();
+            full += bucket.fill_status();
+            counted_entries += 5;
+            index -= 1;
+        }
+        (full as f64 / counted_entries as f64 * 1000.0) as usize
+    }
+
+    pub fn lookup(&self, hash: u64) -> Option<EvalCacheEntry> {
+        self.cache[hash as usize % self.buckets].probe(hash)
+    }
+
+    pub fn insert(&mut self, hash: u64, ce: EvalCacheEntry) {
+        self.cache
+            .get_mut(hash as usize % self.buckets)
+            .unwrap()
+            .should_replace(ce);
+    }
+}
+
+#[repr(align(64))]
+#[derive(Clone)]
+pub struct EvalCacheBucket([EvalCacheEntry; 5]);
+impl EvalCacheBucket {
+    pub fn fill_status(&self) -> usize {
+        let mut res = 0;
+        for i in 0..3 {
+            if !self.0[i].is_invalid() {
+                res += 1;
+            }
+        }
+        res
+    }
+
+    pub fn probe(&self, hash: u64) -> Option<EvalCacheEntry> {
+        if self.0[0].valid_hash(hash) {
+            Some(self.0[0])
+        } else if self.0[1].valid_hash(hash) {
+            Some(self.0[1])
+        } else if self.0[2].valid_hash(hash) {
+            Some(self.0[2])
+        } else if self.0[3].valid_hash(hash) {
+            Some(self.0[3])
+        } else if self.0[4].valid_hash(hash) {
+            Some(self.0[4])
+        } else {
+            None
+        }
+    }
+
+    pub fn should_replace(&mut self, ce: EvalCacheEntry) {
+        //Slot 0 is highest depth
+        //Slot 1 is random replace
+        //Slot 2 is always
+        if self.0[0].is_invalid() {
+            self.0[0] = ce;
+        } else if self.0[1].is_invalid() {
+            self.0[1] = ce;
+        } else if self.0[2].is_invalid() {
+            self.0[2] = ce;
+        } else if self.0[3].is_invalid() {
+            self.0[3] = ce;
+        } else if self.0[4].is_invalid() {
+            self.0[4] = ce;
+        } else {
+            self.0[4] = self.0[3];
+            self.0[3] = self.0[2];
+            self.0[2] = self.0[1];
+            self.0[1] = self.0[0];
+            self.0[0] = ce;
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct EvalCacheEntry {
+    pub upper_hash: u32, //4
+    pub lower_hash: u32, //8
+    pub score: i16,      //12
+}
+impl EvalCacheEntry {
+    pub fn valid_hash(&self, hash: u64) -> bool {
+        (self.upper_hash as u64) == (hash >> 32) && (self.lower_hash) as u64 == (hash & 0xFFFFFFFF)
+    }
+    pub fn is_invalid(&self) -> bool {
+        self.score == std::i16::MIN
+    }
+    pub fn invalid() -> Self {
+        EvalCacheEntry {
+            upper_hash: 0,
+            lower_hash: 0,
+            score: std::i16::MIN,
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::cache::{Cache, CacheEntry, HASH_SIZE};
+use crate::cache::{Cache, CacheEntry, EvalCache, EvalCacheEntry, HASH_SIZE};
 use crate::evaluation::evaluate;
 use crate::moveordering::{MoveOrderer, STAGES};
 use crate::timecontrol::Timecontrol;
@@ -21,6 +21,7 @@ pub struct Searcher {
     pub pv_table: ActionListStack,
     pub stop_flag: bool,
     pub cache: Cache,
+    pub eval_cache: EvalCache,
     pub root_plies_played: u8,
     pub tc: Timecontrol,
     pub killer_moves: [[Option<Action>; 2]; MAX_SEARCH_DEPTH],
@@ -39,6 +40,7 @@ impl Searcher {
             pv_table: ActionListStack::with_size(MAX_SEARCH_DEPTH),
             stop_flag: false,
             cache: Cache::with_size(HASH_SIZE),
+            eval_cache: EvalCache::with_size(HASH_SIZE),
             root_plies_played: 0,
             tc: Timecontrol::MoveTime(1800),
             killer_moves: [[None; 2]; MAX_SEARCH_DEPTH],
@@ -179,8 +181,20 @@ pub fn principal_variation_search(
 
     //TODO: Quiescence search
     if depth_left <= 0 {
+        let ce = searcher.eval_cache.lookup(game_state.hash);
+        if let Some(ce) = ce {
+            return ce.score;
+        }
         //return eval
         let evaluation = evaluate(game_state) * color;
+        searcher.eval_cache.insert(
+            game_state.hash,
+            EvalCacheEntry {
+                upper_hash: (game_state.hash >> 32) as u32,
+                lower_hash: (game_state.hash & 0xFFFFFFFF) as u32,
+                score: evaluation,
+            },
+        );
         return evaluation;
     }
 
