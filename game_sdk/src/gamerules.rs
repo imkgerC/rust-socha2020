@@ -47,7 +47,7 @@ impl GameState {
         next_to_own & !(next_to_other | self.obstacles | self.occupied())
     }
 }
-pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList) {
+pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList<Action>) {
     debug_assert!(game_state.check_integrity());
     actionlist.size = 0;
     if game_state.ply == 0 {
@@ -113,7 +113,7 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
     }
 }
 
-fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList) {
+fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList<Action>) {
     let mut own_fields = game_state.occupied[game_state.color_to_move as usize];
     while own_fields > 0 {
         let from = own_fields.trailing_zeros() as u8;
