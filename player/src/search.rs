@@ -201,26 +201,43 @@ pub fn principal_variation_search(
             if ce.depth >= depth_left as u8
                 && ((game_state.ply + depth_left as u8) < 60 && ce.plies + ce.depth < 60
                     || (game_state.ply + depth_left as u8) >= 60 && ce.plies + ce.depth >= 60)
+                && (!pv_node || (game_state.ply + depth_left as u8) < 60 || true)
             {
-                if !ce.alpha && !ce.beta {
-                    searcher.pv_table[current_depth].clear();
-                    searcher.pv_table[current_depth].push(ce.action);
-                    return ce.score;
+                let tt_score = if ce.score >= MATE_IN_MAX {
+                    ce.score - current_depth as i16
+                } else if ce.score <= MATED_IN_MAX {
+                    ce.score + current_depth as i16
                 } else {
-                    if ce.beta {
-                        alpha = alpha.max(ce.score);
-                    } else if ce.alpha {
-                        beta = beta.min(ce.score);
-                    }
-                    if alpha >= beta {
-                        return alpha;
+                    ce.score
+                };
+                let mate_length = if ce.score.abs() >= MATE_IN_MAX {
+                    MATE_IN_MAX + 60 - ce.score.abs()
+                } else {
+                    0
+                };
+                if true
+                    || (game_state.ply + mate_length as u8) < 60 && ce.plies + ce.depth < 60
+                    || (game_state.ply + mate_length as u8) >= 60 && ce.plies + ce.depth >= 60
+                {
+                    if !ce.alpha && !ce.beta {
+                        searcher.pv_table[current_depth].clear();
+                        searcher.pv_table[current_depth].push(ce.action);
+                        return ce.score;
+                    } else {
+                        if ce.beta {
+                            alpha = alpha.max(ce.score);
+                        } else if ce.alpha {
+                            beta = beta.min(ce.score);
+                        }
+                        if alpha >= beta {
+                            return alpha;
+                        }
                     }
                 }
             }
             tt_action = Some(ce.action);
         }
     }
-
     //TODO: Pruning
     //Null move Pruning
     if false

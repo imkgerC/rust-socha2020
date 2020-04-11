@@ -8,16 +8,13 @@ use game_sdk::{Action, ActionList, Color, GameState, PieceType};
 
 pub const ATTACKER_VALUE: [f64; 5] = [5., 1., 4., 3., 2.];
 pub const TARGET_VALUE: [f64; 5] = [500., 400., 300., 100., 200.];
-pub const STAGES: [MoveOrderingStage; 9] = [
+pub const STAGES: [MoveOrderingStage; 6] = [
     GenerateMoves,
     PVMove,
     TTMove,
-    PinInitialization,
-    Pins,
     Killer,
     QuietInitialization,
     Quiet,
-    BadPins,
 ];
 pub enum MoveOrderingStage {
     GenerateMoves,
