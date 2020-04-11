@@ -6,6 +6,7 @@ use crate::gamestate::Color;
 use crate::gamestate::Color::{BLUE, RED};
 use crate::gamestate::GameState;
 use crate::neighbor_magic::get_accessible_neighbors;
+use crate::piece_type;
 use crate::piece_type::PieceType;
 
 impl GameState {
@@ -91,7 +92,7 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
     }
 
     // generate SetMoves
-    let mut allowed = Vec::with_capacity(5);
+    /*let mut allowed = Vec::with_capacity(5);
     if game_state.pieces[PieceType::BEE as usize][game_state.color_to_move as usize] == 0 {
         allowed.push(PieceType::BEE);
     }
@@ -113,13 +114,16 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
     }
     if game_state.amount_of_beetles_from_color(game_state.color_to_move) < 2 {
         allowed.push(PieceType::BEETLE);
-    }
+    }*/
+    let undeployed_counts = game_state.undeployed_counts[game_state.color_to_move as usize];
     while valid_set_destinations > 0 {
         let to = valid_set_destinations.trailing_zeros();
         valid_set_destinations ^= 1 << to;
         // TODO: check which pieces were already set
-        for piece_type in &allowed {
-            actionlist.push(Action::SetMove(*piece_type, to as u8));
+        for piece_type in &piece_type::PIECETYPE_VARIANTS {
+            if undeployed_counts[*piece_type as usize] > 0 {
+                actionlist.push(Action::SetMove(*piece_type, to as u8));
+            }
         }
     }
 

@@ -43,6 +43,8 @@ pub struct GameState {
     pub pieces: [[u128; 2]; 5],
     pub beetle_stack: [[u128; 2]; 4],
     pub obstacles: u128,
+
+    pub undeployed_counts: [[u8; 5]; 2],
 }
 impl GameState {
     #[inline(always)]
@@ -161,6 +163,12 @@ impl GameState {
                 }
             }
         }
+        //Check undeployed counts
+        let mut clone = self.clone();
+        clone.recalculate_undeployed();
+        if clone.undeployed_counts != self.undeployed_counts {
+            return false;
+        }
         true
     }
 
@@ -252,14 +260,16 @@ impl GameState {
                 }
             }
         }
-        let res = GameState {
+        let mut res = GameState {
             ply,
             color_to_move,
             pieces,
             occupied,
             beetle_stack,
             obstacles,
+            undeployed_counts: [[0; 5]; 2],
         };
+        res.recalculate_undeployed();
         debug_assert!(res.check_integrity());
         res
     }
@@ -267,13 +277,44 @@ impl GameState {
     pub fn new() -> GameState {
         let pieces = [[0u128; 2]; 5];
         let beetle_stack = [[0u128; 2]; 4];
-        GameState {
+        let mut res = GameState {
             ply: 0,
             color_to_move: RED,
             occupied: [0u128; 2],
             pieces,
             beetle_stack,
             obstacles: 0,
+            undeployed_counts: [[0; 5]; 2],
+        };
+        res.recalculate_undeployed();
+        res
+    }
+
+    pub fn recalculate_undeployed(&mut self) {
+        self.undeployed_counts = [[0; 5]; 2];
+        let mut max_undeployed = [0u8; 5];
+        max_undeployed[PieceType::BEE as usize] = 1;
+        max_undeployed[PieceType::BEETLE as usize] = 2;
+        max_undeployed[PieceType::ANT as usize] = 3;
+        max_undeployed[PieceType::SPIDER as usize] = 3;
+        max_undeployed[PieceType::GRASSHOPPER as usize] = 2;
+        for piece_type_ref in PIECETYPE_VARIANTS.iter() {
+            let piece_type = *piece_type_ref as usize;
+            if *piece_type_ref != PieceType::BEETLE {
+                let color = Color::RED as usize;
+                self.undeployed_counts[color][piece_type] =
+                    max_undeployed[piece_type] - self.pieces[piece_type][color].count_ones() as u8;
+                let color = Color::BLUE as usize;
+                self.undeployed_counts[color][piece_type] =
+                    max_undeployed[piece_type] - self.pieces[piece_type][color].count_ones() as u8;
+            } else {
+                self.undeployed_counts[Color::RED as usize][piece_type] = max_undeployed
+                    [piece_type]
+                    - self.amount_of_beetles_from_color(Color::RED) as u8;
+                self.undeployed_counts[Color::BLUE as usize][piece_type] = max_undeployed
+                    [piece_type]
+                    - self.amount_of_beetles_from_color(Color::BLUE) as u8;
+            }
         }
     }
 
@@ -469,8 +510,12 @@ impl GameState {
             }
             Action::SetMove(piece_type, to) => {
                 debug_assert!((self.occupied() | self.obstacles) & (1 << to) == 0);
+                debug_assert!(
+                    self.undeployed_counts[self.color_to_move as usize][piece_type as usize] > 0
+                );
                 self.pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << to;
                 self.occupied[self.color_to_move as usize] ^= 1 << to;
+                self.undeployed_counts[self.color_to_move as usize][piece_type as usize] -= 1;
             }
         };
         self.ply += 1;
@@ -498,6 +543,7 @@ impl GameState {
                 );
                 self.pieces[piece_type as usize][self.color_to_move as usize] ^= 1 << to;
                 self.occupied[self.color_to_move as usize] ^= 1 << to;
+                self.undeployed_counts[self.color_to_move as usize][piece_type as usize] += 1
             }
         };
         self.ply -= 1;
