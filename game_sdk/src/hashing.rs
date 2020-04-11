@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use rand::{prelude::StdRng, Rng};
 use std::fmt::{Debug, Display, Formatter, Result};
 pub struct HashKeys {

@@ -1,11 +1,6 @@
 [workspace]
-members = ["player",
-           "game_sdk",
-           "referee",
-           "xml_client",
-           "demo",
-           "referee_client",
-           "tuning"]
+members = ["game_sdk",
+           "demo"]
 
 [profile.release]
 opt-level = 3

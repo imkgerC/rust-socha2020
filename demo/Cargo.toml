@@ -8,4 +8,3 @@ edition = "2018"
 
 [dependencies]
 game_sdk = { path = "../game_sdk"}
-player = { path = "../player" }
