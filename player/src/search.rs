@@ -1,5 +1,6 @@
 use crate::cache::{Cache, CacheEntry, HASH_SIZE};
 use crate::evaluation::evaluate;
+use crate::moveordering::{MoveOrderer, STAGES};
 use crate::timecontrol::Timecontrol;
 use game_sdk::actionlist::ActionListStack;
 use game_sdk::gamerules::{calculate_legal_moves, get_result, is_game_finished};
@@ -9,48 +10,46 @@ use std::time::Instant;
 pub const MATE_IN_MAX: i16 = 30000;
 pub const MATED_IN_MAX: i16 = -MATE_IN_MAX;
 pub const STANDARD_SCORE: i16 = std::i16::MIN + 1;
+pub const MAX_SEARCH_DEPTH: usize = 60;
 
 pub struct Searcher {
     pub nodes_searched: u64,
     pub als: ActionListStack,
     pub start_time: Option<Instant>,
-    pub principal_variation_table: ActionList,
+    pub principal_variation_table: ActionList<Action>,
     pub principal_variation_hashtable: Vec<u64>,
     pub pv_table: ActionListStack,
     pub stop_flag: bool,
     pub cache: Cache,
     pub root_plies_played: u8,
     pub tc: Timecontrol,
+    pub killer_moves: [[Option<Action>; 2]; MAX_SEARCH_DEPTH],
+    pub hh_score: [[[usize; 122]; 122]; 2],
+    pub bf_score: [[[usize; 122]; 122]; 2],
 }
 
 impl Searcher {
     pub fn new() -> Self {
         Searcher {
             nodes_searched: 0,
-            als: ActionListStack::with_size(60),
+            als: ActionListStack::with_size(MAX_SEARCH_DEPTH),
             start_time: None,
             principal_variation_table: ActionList::default(),
-            principal_variation_hashtable: Vec::with_capacity(60),
-            pv_table: ActionListStack::with_size(60),
+            principal_variation_hashtable: Vec::with_capacity(MAX_SEARCH_DEPTH),
+            pv_table: ActionListStack::with_size(MAX_SEARCH_DEPTH),
             stop_flag: false,
             cache: Cache::with_size(HASH_SIZE),
             root_plies_played: 0,
             tc: Timecontrol::MoveTime(1800),
+            killer_moves: [[None; 2]; MAX_SEARCH_DEPTH],
+            hh_score: [[[0usize; 122]; 122]; 2],
+            bf_score: [[[1usize; 122]; 122]; 2],
         }
     }
     pub fn with_tc(tc: Timecontrol) -> Self {
-        Searcher {
-            nodes_searched: 0,
-            als: ActionListStack::with_size(60),
-            start_time: None,
-            principal_variation_table: ActionList::default(),
-            principal_variation_hashtable: Vec::with_capacity(60),
-            pv_table: ActionListStack::with_size(60),
-            stop_flag: false,
-            cache: Cache::with_size(HASH_SIZE),
-            root_plies_played: 0,
-            tc,
-        }
+        let mut res = Searcher::new();
+        res.tc = tc;
+        res
     }
 
     pub fn search_move(&mut self, game_state: &GameState) -> Action {
@@ -67,8 +66,18 @@ impl Searcher {
         self.principal_variation_hashtable.clear();
         self.stop_flag = false;
         self.root_plies_played = game_state.ply;
+        self.killer_moves = [[None; 2]; MAX_SEARCH_DEPTH];
+        for i in 0..2 {
+            for j in 0..122 {
+                for k in 0..122 {
+                    self.hh_score[i][j][k] /= 8;
+                    self.bf_score[i][j][k] = (self.bf_score[i][j][k] / 8).max(1);
+                }
+            }
+        }
+
         let mut score = STANDARD_SCORE;
-        for depth in 1..61 {
+        for depth in 1..=MAX_SEARCH_DEPTH {
             let new_score = principal_variation_search(
                 self,
                 &mut game_state,
@@ -175,6 +184,7 @@ pub fn principal_variation_search(
         return evaluation;
     }
 
+    //Todo PV-Table Lookup
     let pv_action = if searcher.principal_variation_table.size > current_depth
         && searcher.principal_variation_hashtable[current_depth] == game_state.hash
     {
@@ -183,6 +193,7 @@ pub fn principal_variation_search(
         None
     };
 
+    //TT-Lookup
     let mut tt_action: Option<Action> = None;
     {
         let ce = searcher.cache.lookup(game_state.hash);
@@ -211,34 +222,39 @@ pub fn principal_variation_search(
     }
 
     //TODO: Pruning
+    //Null move Pruning
+    if false
+        && !pv_node
+        && depth_left > 3
+        && (game_state
+            .valid_set_destinations(game_state.color_to_move)
+            .count_ones()
+            > 0)
+        && depth_left as u8 + game_state.ply < 60
+    {
+        let action = Action::SkipMove;
+        game_state.make_action(action);
+        let following_score = -principal_variation_search(
+            searcher,
+            game_state,
+            current_depth + 1,
+            (depth_left - 3).max(1) as usize,
+            -beta,
+            -beta + 1,
+        );
+        game_state.unmake_action(action);
+        if following_score >= beta {
+            return following_score;
+        }
+    }
 
     let mut current_max_score = STANDARD_SCORE;
-    calculate_legal_moves(game_state, &mut searcher.als[current_depth]);
-    if searcher.als[current_depth].size == 0 {
-        //TODO
-        return MATED_IN_MAX;
-    }
-    //Some basic move sorting
-    {
-        let mut i = 0;
-        if pv_action.is_some() {
-            let index = searcher.als[current_depth]
-                .find_action(pv_action.unwrap())
-                .expect("PV move not found in movelist");
-            searcher.als[current_depth].swap(0, index);
-            i += 1;
-        }
-        if tt_action.is_some() && (pv_action != tt_action) {
-            let index = searcher.als[current_depth]
-                .find_action(tt_action.unwrap())
-                .expect("TT move not found in movelist");
-            searcher.als[current_depth].swap(i, index);
-        }
-    }
 
-    //TODO move sorting
-    for i in 0..searcher.als[current_depth].size {
-        let action = searcher.als[current_depth][i];
+    let mut move_orderer = MoveOrderer::with_stages(&STAGES);
+    let mut i = 0;
+    while let Some(action) =
+        move_orderer.next(game_state, searcher, current_depth, pv_action, tt_action)
+    {
         game_state.make_action(action);
         //TODO: Forward pruning & late-move-reductions
         let following_score = if depth_left <= 2 || !pv_node || i == 0 {
@@ -288,10 +304,30 @@ pub fn principal_variation_search(
         }
         alpha = alpha.max(following_score);
 
-        //TODO Update history scores & killers
+        let (from, to) = match action {
+            Action::SkipMove => (121, 121),
+            Action::DragMove(_, from, to) => (from, to),
+            Action::SetMove(_, to) => (121, to),
+        };
         if alpha >= beta {
+            if Some(action) != searcher.killer_moves[current_depth][0]
+                && Some(action) != searcher.killer_moves[current_depth][1]
+            {
+                let before = searcher.killer_moves[current_depth][0];
+                searcher.killer_moves[current_depth][0] = Some(action);
+                searcher.killer_moves[current_depth][1] = before;
+                searcher.hh_score[game_state.color_to_move as usize][from as usize][to as usize] +=
+                    depth_left;
+            }
             break;
+        } else {
+            searcher.bf_score[game_state.color_to_move as usize][from as usize][to as usize] +=
+                depth_left;
         }
+        i += 1;
+    }
+    if !searcher.stop_flag && i == 0 && current_max_score == STANDARD_SCORE {
+        return MATED_IN_MAX;
     }
     //Make TT entry
     if !searcher.stop_flag {

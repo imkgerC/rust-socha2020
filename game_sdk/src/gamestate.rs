@@ -1,6 +1,7 @@
 use crate::action::Action;
 use crate::actionlist::ActionListStack;
 use crate::bitboard::constants::VALID_FIELDS;
+use crate::bitboard::get_neighbours;
 use crate::fieldtype::FieldType;
 use crate::gamerules::{calculate_legal_moves, is_game_finished};
 use crate::gamestate::Color::{BLUE, RED};
@@ -634,6 +635,43 @@ impl GameState {
             self.unmake_action(als[depth][i]);
         }
         nc
+    }
+
+    fn get_color_and_pt_of_square(&self, square: usize) -> (PieceType, Color) {
+        for color in [Color::RED, Color::BLUE].iter() {
+            for pt in PIECETYPE_VARIANTS.iter() {
+                if self.pieces[*pt as usize][*color as usize] & (1u128 << square) > 0 {
+                    return (*pt, *color);
+                }
+            }
+        }
+        panic!("No piece matches!");
+    }
+    //Returns the pinner piecetype first and second pinned piece type
+    pub fn get_pin_info(&self, action: Action) -> Option<(PieceType, Color, PieceType)> {
+        match action {
+            Action::SkipMove => None,
+            Action::SetMove(pt, to) => {
+                let pinned = get_neighbours(1u128 << to) & self.occupied();
+                if pinned.count_ones() == 1 {
+                    let (enemy_pinned, color) =
+                        self.get_color_and_pt_of_square(pinned.trailing_zeros() as usize);
+                    Some((pt, color, enemy_pinned))
+                } else {
+                    None
+                }
+            }
+            Action::DragMove(pt, from, to) => {
+                let pinned = get_neighbours(1u128 << to) & (self.occupied() ^ (1u128 << from));
+                if pinned.count_ones() == 1 {
+                    let (enemy_pinned, color) =
+                        self.get_color_and_pt_of_square(pinned.trailing_zeros() as usize);
+                    Some((pt, color, enemy_pinned))
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 impl Display for GameState {

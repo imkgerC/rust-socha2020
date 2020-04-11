@@ -206,7 +206,7 @@ pub fn load_random_openings(
     }
     res
 }
-pub fn has_no_beesetmove(al: &ActionList) -> bool {
+pub fn has_no_beesetmove(al: &ActionList<Action>) -> bool {
     for i in 0..al.size {
         if let Action::SetMove(PieceType::BEE, _) = al[i] {
             return false;
@@ -214,7 +214,7 @@ pub fn has_no_beesetmove(al: &ActionList) -> bool {
     }
     true
 }
-pub fn get_random_setmove(al: &ActionList, rng: &mut ThreadRng) -> Action {
+pub fn get_random_setmove(al: &ActionList<Action>, rng: &mut ThreadRng) -> Action {
     let mut al2 = ActionList::default();
     for i in 0..al.size {
         if let Action::SetMove(PieceType::BEE, _) = al[i] {
