@@ -107,6 +107,7 @@ impl XMLNode {
             &state.beetle_stack,
             state.ply,
         );
+        state.recalculate_undeployed();
         return state;
     }
 
