@@ -25,6 +25,7 @@ pub struct Searcher {
     pub killer_moves: [[Option<Action>; 2]; MAX_SEARCH_DEPTH],
     pub hh_score: [[[usize; 122]; 122]; 2],
     pub bf_score: [[[usize; 122]; 122]; 2],
+    pub cutoff_stats: Vec<u64>,
 }
 
 impl Searcher {
@@ -44,6 +45,7 @@ impl Searcher {
             killer_moves: [[None; 2]; MAX_SEARCH_DEPTH],
             hh_score: [[[0usize; 122]; 122]; 2],
             bf_score: [[[1usize; 122]; 122]; 2],
+            cutoff_stats: vec![0; 60],
         }
     }
     pub fn with_tc(tc: Timecontrol) -> Self {
@@ -67,6 +69,7 @@ impl Searcher {
         self.stop_flag = false;
         self.root_plies_played = game_state.ply;
         self.killer_moves = [[None; 2]; MAX_SEARCH_DEPTH];
+        self.cutoff_stats = vec![0; 60];
         for i in 0..2 {
             for j in 0..122 {
                 for k in 0..122 {
@@ -109,6 +112,15 @@ impl Searcher {
                 self.start_time.unwrap().elapsed().as_millis(),
                 self.cache.fill_status(),
                 self.principal_variation_table
+            );
+            println!("{:?}", self.cutoff_stats);
+            let sum: u64 = self.cutoff_stats.iter().sum();
+            println!(
+                "{:?}",
+                self.cutoff_stats
+                    .iter()
+                    .map(|s| *s as f64 / (sum as f64).max(1.))
+                    .collect::<Vec<f64>>()
             );
         }
         println!(
@@ -254,15 +266,16 @@ pub fn principal_variation_search(
         }
     }
     //TODO: Pruning
+    let mut wouldnmp = false;
     //Null move Pruning
-    if false
-        && !pv_node
+    if !pv_node
         && depth_left > 3
         && (game_state
             .valid_set_destinations(game_state.color_to_move)
             .count_ones()
             > 0)
         && depth_left as u8 + game_state.ply < 60
+        && evaluate(&game_state) * color >= beta
     {
         let action = Action::SkipMove;
         game_state.make_action(action);
@@ -277,6 +290,7 @@ pub fn principal_variation_search(
         game_state.unmake_action(action);
         if following_score >= beta {
             return following_score;
+            //wouldnmp = true;
         }
     }
 
@@ -357,6 +371,12 @@ pub fn principal_variation_search(
                 depth_left;
         }
         i += 1;
+    }
+    if wouldnmp && alpha >= beta {
+        searcher.cutoff_stats[0] += 1;
+    } else if wouldnmp && alpha < beta {
+        searcher.cutoff_stats[1] += 1;
+        //println!("{}",game_state);
     }
     if !searcher.stop_flag && i == 0 && current_max_score == STANDARD_SCORE {
         return MATED_IN_MAX;
