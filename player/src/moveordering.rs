@@ -1,6 +1,6 @@
 use crate::moveordering::MoveOrderingStage::{
-    BadPins, GenerateMoves, Killer, PVMove, PinInitialization, Pins, Quiet, QuietInitialization,
-    TTMove,
+    BadPins, DeletePvTTMove, GenerateMoves, Killer, PVMove, PinInitialization, Pins, Quiet,
+    QuietInitialization, TTMove,
 };
 use crate::search::Searcher;
 use game_sdk::gamerules::calculate_legal_moves;
@@ -8,10 +8,11 @@ use game_sdk::{Action, ActionList, Color, GameState, PieceType};
 
 pub const ATTACKER_VALUE: [f64; 5] = [5., 1., 4., 3., 2.];
 pub const TARGET_VALUE: [f64; 5] = [500., 400., 300., 100., 200.];
-pub const STAGES: [MoveOrderingStage; 6] = [
-    GenerateMoves,
+pub const STAGES: [MoveOrderingStage; 7] = [
     PVMove,
     TTMove,
+    GenerateMoves,
+    DeletePvTTMove,
     Killer,
     QuietInitialization,
     Quiet,
@@ -20,6 +21,7 @@ pub enum MoveOrderingStage {
     GenerateMoves,
     PVMove,
     TTMove,
+    DeletePvTTMove,
     PinInitialization,
     Pins,
     Killer,
@@ -114,10 +116,19 @@ impl MoveOrderer {
                 }
                 self.next(game_state, searcher, current_depth, pv_action, tt_action)
             }
+            DeletePvTTMove => {
+                if pv_action.is_some() {
+                    self.remove_action(pv_action.unwrap(), &mut searcher.als[current_depth]);
+                }
+                if tt_action.is_some() && tt_action != pv_action {
+                    self.remove_action(tt_action.unwrap(), &mut searcher.als[current_depth]);
+                }
+                self.stage += 1;
+                self.next(game_state, searcher, current_depth, pv_action, tt_action)
+            }
             PVMove => {
                 self.stage += 1;
                 if pv_action.is_some() {
-                    self.remove_action(pv_action.unwrap(), &mut searcher.als[current_depth]);
                     Some(pv_action.unwrap())
                 } else {
                     self.next(game_state, searcher, current_depth, pv_action, tt_action)
@@ -126,7 +137,6 @@ impl MoveOrderer {
             TTMove => {
                 self.stage += 1;
                 if tt_action.is_some() && tt_action != pv_action {
-                    self.remove_action(tt_action.unwrap(), &mut searcher.als[current_depth]);
                     Some(tt_action.unwrap())
                 } else {
                     self.next(game_state, searcher, current_depth, pv_action, tt_action)
