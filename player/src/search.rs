@@ -130,7 +130,7 @@ pub fn principal_variation_search(
     current_depth: usize,
     depth_left: usize,
     mut alpha: i16,
-    beta: i16,
+    mut beta: i16,
 ) -> i16 {
     searcher.nodes_searched += 1;
     //clear_pv
@@ -175,7 +175,16 @@ pub fn principal_variation_search(
     }
     debug_assert!(current_depth < 60);
 
-    //TODO: Mate distance pruning
+    //Mate distance pruning
+    {
+        //I know I am not getting mated in this position
+        alpha = alpha.max((MATE_IN_MAX + 60 - current_depth as i16 - 1) * -1);
+        //And I am at best mating in the next position
+        beta = beta.min(MATE_IN_MAX + 60 - current_depth as i16 - 1);
+        if alpha >= beta {
+            return alpha;
+        }
+    }
 
     //TODO: Quiescence search
     if depth_left <= 0 {
@@ -196,7 +205,6 @@ pub fn principal_variation_search(
         return evaluation;
     }
 
-    //Todo PV-Table Lookup
     let pv_action = if searcher.principal_variation_table.size > current_depth
         && searcher.principal_variation_hashtable[current_depth] == game_state.hash
     {
