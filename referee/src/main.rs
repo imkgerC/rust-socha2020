@@ -4,7 +4,7 @@ use crate::logging::Log;
 use crate::queue::ThreadSafeQueue;
 use game_sdk::bitboard::get_neighbours;
 use game_sdk::gamerules::{calculate_legal_moves, get_result, is_game_finished};
-use game_sdk::{Action, ActionList, Color, GameState, PieceType};
+use game_sdk::{Action, ActionList, Color, GameState, PieceType, MATED_IN_MAX, MATE_IN_MAX};
 use rand::prelude::ThreadRng;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
@@ -25,6 +25,8 @@ pub struct Config {
     pub engine1_path: String,
     pub engine2_path: String,
     pub movetime: u64,
+    pub blunder_detection: bool,
+    pub blunder_threshold: Option<i16>,
 }
 
 pub struct GameTask {
@@ -34,6 +36,8 @@ pub struct GameTask {
     pub engine1: Engine,
     pub engine2: Engine,
     pub movetime: u64,
+    pub blunder_detection: bool,
+    pub blunder_threshold: Option<i16>,
 }
 pub struct TaskResult {
     pub game_id: usize,
@@ -49,6 +53,8 @@ fn main() {
         engine1_path: "".to_owned(),
         engine2_path: "".to_owned(),
         movetime: 1800,
+        blunder_detection: false,
+        blunder_threshold: None,
     };
     let args: Vec<String> = env::args().collect();
     let mut index = 1;
@@ -80,6 +86,20 @@ fn main() {
                     .expect("Amount of movetime given is not a correct number");
                 index += 2;
             }
+            "-blunderdetection" | "blunderdetection" | "-bd" | "bd" => {
+                config.blunder_detection = args[index + 1]
+                    .parse::<bool>()
+                    .expect("Blunderdetection given is not a correct bool");
+                index += 2;
+            }
+            "-blunderthreshold" | "blunderthreshold" | "-bt" | "bt" => {
+                config.blunder_threshold = Some(
+                    args[index + 1]
+                        .parse::<i16>()
+                        .expect("Blunderthreshold given is not a correct integer"),
+                );
+                index += 2;
+            }
             _ => {
                 index += 1;
             }
@@ -93,9 +113,15 @@ fn game_loop(config: Config) {
     let mut engine2 = Engine::from_path(&config.engine2_path);
     let game_rounds = (config.games as f64 / 2.0).ceil() as usize;
     //Setup games
-    let queue: Arc<ThreadSafeQueue<GameTask>> = Arc::new(ThreadSafeQueue::new(
-        load_random_openings(game_rounds, &engine1, &engine2, config.movetime),
-    ));
+    let queue: Arc<ThreadSafeQueue<GameTask>> =
+        Arc::new(ThreadSafeQueue::new(load_random_openings(
+            game_rounds,
+            &engine1,
+            &engine2,
+            config.movetime,
+            config.blunder_detection,
+            config.blunder_threshold,
+        )));
     let games = queue.len();
     println!("Prepared {} games! Starting!", games);
     let result_queue: Arc<ThreadSafeQueue<TaskResult>> =
@@ -156,6 +182,8 @@ pub fn load_random_openings(
     engine1: &Engine,
     engine2: &Engine,
     movetime: u64,
+    blunder_detection: bool,
+    blunder_threshold: Option<i16>,
 ) -> Vec<GameTask> {
     let mut res = Vec::with_capacity(n * 2);
     let mut rng = rand::thread_rng();
@@ -194,6 +222,8 @@ pub fn load_random_openings(
             engine1: engine1.clone(),
             engine2: engine2.clone(),
             movetime,
+            blunder_detection,
+            blunder_threshold,
         });
         res.push(GameTask {
             opening,
@@ -202,6 +232,8 @@ pub fn load_random_openings(
             engine1: engine1.clone(),
             engine2: engine2.clone(),
             movetime,
+            blunder_detection,
+            blunder_threshold,
         });
     }
     res
@@ -234,9 +266,9 @@ pub fn get_random_setmove(al: &ActionList<Action>, rng: &mut ThreadRng) -> Actio
     }
 }
 pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
-    let write_error = |msg| {
+    let write_error = |msg: String| {
         let mut log = error_log.lock().unwrap();
-        log.log(msg, true);
+        log.log(&msg, true);
     };
     let mut engine1 = game.engine1;
     let mut engine2 = game.engine2;
@@ -259,23 +291,29 @@ pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
     engine1.set_tc(&mut e1stdin, game.movetime);
     engine2.set_tc(&mut e2stdin, game.movetime);
 
+    let (mut e1_last_score, mut e1_saw_to_end, mut e2_last_score, mut e2_saw_to_end) =
+        (None, None, None, None);
+
     while !is_game_finished(&state) {
         let is_engine1 = state.color_to_move == Color::RED && game.engine1_is_red
             || state.color_to_move == Color::BLUE && !game.engine1_is_red;
         let action: Option<Action>;
         let score: Option<i16>;
+        let saw_to_end: Option<bool>;
         if is_engine1 {
             let res =
                 engine1.request_move(&state, &mut e1stdin, e1stdout, &mut e1stderr, &mut e1log);
             action = res.0;
             score = res.1;
-            e1stdout = res.2;
+            saw_to_end = res.2;
+            e1stdout = res.3;
         } else {
             let res =
                 engine2.request_move(&state, &mut e2stdin, e2stdout, &mut e2stderr, &mut e2log);
             action = res.0;
             score = res.1;
-            e2stdout = res.2;
+            saw_to_end = res.2;
+            e2stdout = res.3;
         }
         fens.push(format!("{}//{:?}", state.to_fen(), score));
         calculate_legal_moves(&state, &mut al);
@@ -286,7 +324,7 @@ pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
                 engine2.disqs += 1;
             }
             if action.is_none() {
-                write_error(&format!(
+                write_error(format!(
                     "Engine {} crashed in game {} in state: {}! Disqualifying..\n",
                     if is_engine1 {
                         engine1.name.clone()
@@ -297,7 +335,7 @@ pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
                     state.to_fen()
                 ));
             } else {
-                write_error(&format!(
+                write_error(format!(
                     "Engine {} sent an invalid move {} in game {} in state: {}! Disqualifying..\n",
                     if is_engine1 {
                         engine1.name.clone()
@@ -310,29 +348,134 @@ pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
                 ));
             }
             break;
-        } else {
-            state.make_action(action.unwrap());
-            if is_game_finished(&state) {
-                let winner = get_result(&state);
-                if winner.is_none() {
-                    engine1.draws += 1;
-                    engine2.draws += 1;
-                } else if winner.unwrap() == Color::RED {
-                    if game.engine1_is_red {
-                        engine1.wins += 1;
-                        engine2.losses += 1;
+        }
+        //Blunder detection
+        if game.blunder_detection {
+            let saw_to_end_before = if is_engine1 {
+                e1_saw_to_end
+            } else {
+                e2_saw_to_end
+            };
+            let score_before = if is_engine1 {
+                e1_last_score
+            } else {
+                e2_last_score
+            };
+            let enemy_saw_to_end_before = if is_engine1 {
+                e2_saw_to_end
+            } else {
+                e1_saw_to_end
+            };
+            let enemy_score_before = if is_engine1 {
+                e2_last_score
+            } else {
+                e1_last_score
+            };
+            let (current_engine, other_engine) = if is_engine1 {
+                (&mut engine1, &mut engine2)
+            } else {
+                (&mut engine2, &mut engine1)
+            };
+            let error_msg = format!(
+                "Blunder suspected in game {} around state {}\n",
+                game.game_id,
+                state.to_fen()
+            );
+            if let Some(score_now) = score {
+                //Check score from two moves ago
+                if score_before.is_some() {
+                    if saw_to_end_before.is_some()
+                        && saw_to_end_before.unwrap()
+                        && saw_to_end.is_some()
+                        && saw_to_end.unwrap()
+                    {
+                        if is_mate_blunder(score_before.unwrap(), score_now, 2) {
+                            write_error(format!("Mate {}", error_msg));
+                            if score_before.unwrap() <= score_now {
+                                other_engine.blunders += 1;
+                            } else {
+                                current_engine.blunders += 1;
+                            }
+                        }
                     } else {
-                        engine1.losses += 1;
-                        engine2.wins += 1;
+                        if game.blunder_threshold.is_some()
+                            && is_regular_blunder(
+                                score_before.unwrap(),
+                                score_now,
+                                game.blunder_threshold.unwrap(),
+                            )
+                        {
+                            write_error(format!("Regular {}", error_msg));
+                            if score_before.unwrap() <= score_now {
+                                other_engine.blunders += 1;
+                            } else {
+                                current_engine.blunders += 1;
+                            }
+                        }
                     }
+                }
+                //Check blunder in score from one move ago
+                if enemy_score_before.is_some() {
+                    if enemy_saw_to_end_before.is_some()
+                        && enemy_saw_to_end_before.unwrap()
+                        && saw_to_end.is_some()
+                        && saw_to_end.unwrap()
+                    {
+                        if is_mate_blunder(enemy_score_before.unwrap(), -score_now, 1) {
+                            write_error(format!("Mate {}", error_msg));
+                            if enemy_score_before.unwrap() <= -score_now {
+                                other_engine.blunders += 1;
+                            } else {
+                                current_engine.blunders += 1;
+                            }
+                        }
+                    } else {
+                        if game.blunder_threshold.is_some()
+                            && is_regular_blunder(
+                                enemy_score_before.unwrap(),
+                                -score_now,
+                                game.blunder_threshold.unwrap(),
+                            )
+                        {
+                            write_error(format!("Regular {}", error_msg));
+                            if enemy_score_before.unwrap() <= -score_now {
+                                other_engine.blunders += 1;
+                            } else {
+                                current_engine.blunders += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            if is_engine1 {
+                e1_saw_to_end = saw_to_end;
+                e1_last_score = score;
+            } else {
+                e2_saw_to_end = saw_to_end;
+                e2_last_score = score;
+            }
+        }
+        state.make_action(action.unwrap());
+        if is_game_finished(&state) {
+            let winner = get_result(&state);
+            if winner.is_none() {
+                engine1.draws += 1;
+                engine2.draws += 1;
+            } else if winner.unwrap() == Color::RED {
+                if game.engine1_is_red {
+                    engine1.wins += 1;
+                    engine2.losses += 1;
                 } else {
-                    if game.engine1_is_red {
-                        engine1.losses += 1;
-                        engine2.wins += 1;
-                    } else {
-                        engine1.wins += 1;
-                        engine2.losses += 1;
-                    }
+                    engine1.losses += 1;
+                    engine2.wins += 1;
+                }
+            } else {
+                if game.engine1_is_red {
+                    engine1.losses += 1;
+                    engine2.wins += 1;
+                } else {
+                    engine1.wins += 1;
+                    engine2.losses += 1;
                 }
             }
         }
@@ -361,4 +504,19 @@ pub fn play_game(game: GameTask, error_log: Arc<Mutex<Log>>) -> TaskResult {
         engine2,
         fens,
     }
+}
+
+pub fn is_mate_blunder(score_before: i16, score_now: i16, move_difference: usize) -> bool {
+    if score_before >= MATE_IN_MAX {
+        score_now < score_before + move_difference as i16
+    } else if score_before == 0 {
+        score_now != score_before
+    } else if score_before <= MATED_IN_MAX {
+        score_now > score_before - move_difference as i16
+    } else {
+        false
+    }
+}
+pub fn is_regular_blunder(score_before: i16, score_now: i16, threshold: i16) -> bool {
+    (score_before - score_now).abs() > threshold && score_now.abs() < MATE_IN_MAX
 }

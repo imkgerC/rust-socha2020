@@ -105,7 +105,7 @@ impl CacheBucket {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct CacheEntry {
     pub upper_hash: u32, //4
     pub lower_hash: u32, //8

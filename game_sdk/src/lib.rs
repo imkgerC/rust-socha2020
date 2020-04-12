@@ -17,6 +17,9 @@ pub use hashing::HashKeys;
 pub use neighbor_magic::get_accessible_neighbors;
 pub use piece_type::PieceType;
 
+pub const MATE_IN_MAX: i16 = 30000;
+pub const MATED_IN_MAX: i16 = -MATE_IN_MAX;
+
 #[cfg(test)]
 mod tests {
     use crate::misc::FenReader;
