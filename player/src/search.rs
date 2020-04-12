@@ -268,13 +268,13 @@ pub fn principal_variation_search(
     //TODO: Pruning
     let mut wouldnmp = false;
     //Null move Pruning
-    if !pv_node
+    if !pv_node && (!game_state.must_player_place_bee() || game_state.has_player_placed_bee() )// not necessary but should be speedup
         && depth_left > 3
+        && (game_state.ply + depth_left as u8) < 60
         && (game_state
-            .valid_set_destinations(game_state.color_to_move)
-            .count_ones()
-            > 0)
-        && depth_left as u8 + game_state.ply < 60
+        .valid_set_destinations(game_state.color_to_move)
+        .count_ones()
+        > 0)
         && evaluate(&game_state) * color >= beta
     {
         let action = Action::SkipMove;
@@ -379,7 +379,7 @@ pub fn principal_variation_search(
         //println!("{}",game_state);
     }
     if !searcher.stop_flag && i == 0 && current_max_score == STANDARD_SCORE {
-        return MATED_IN_MAX;
+        panic!("No legal move found and tried in a position! This should never occur!");
     }
     //Make TT entry
     if !searcher.stop_flag {

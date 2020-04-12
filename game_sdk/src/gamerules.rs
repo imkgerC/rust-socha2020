@@ -86,7 +86,9 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
             valid_set_destinations ^= 1 << to;
             actionlist.push(Action::SetMove(PieceType::BEE, to as u8));
         }
-        //TODO What if valid_set_destinations was 0 to start with? No legal move???
+        if actionlist.size == 0 {
+            actionlist.push(Action::SkipMove);
+        }
         return;
     }
 
@@ -366,23 +368,30 @@ pub fn are_connected_in_swarm(occupied: u128, to_check: u128) -> bool {
     return false;
 }
 
+//Only works if is_game_finished is true
 pub fn get_result(game_state: &GameState) -> Option<Color> {
-    let red_neighbor_count =
-        (get_neighbours(game_state.pieces[PieceType::BEE as usize][RED as usize])
-            & !game_state.occupied()
-            & !game_state.obstacles)
-            .count_ones();
-    let blue_neighbor_count =
-        (get_neighbours(game_state.pieces[PieceType::BEE as usize][BLUE as usize])
-            & !game_state.occupied()
-            & !game_state.obstacles)
-            .count_ones();
-    if red_neighbor_count > blue_neighbor_count {
-        Some(RED)
-    } else if blue_neighbor_count > red_neighbor_count {
+    if game_state.pieces[PieceType::BEE as usize][RED as usize] == 0 {
         Some(BLUE)
+    } else if game_state.pieces[PieceType::BEE as usize][BLUE as usize] == 0 {
+        Some(RED)
     } else {
-        None
+        let red_neighbor_count =
+            (get_neighbours(game_state.pieces[PieceType::BEE as usize][RED as usize])
+                & !game_state.occupied()
+                & !game_state.obstacles)
+                .count_ones();
+        let blue_neighbor_count =
+            (get_neighbours(game_state.pieces[PieceType::BEE as usize][BLUE as usize])
+                & !game_state.occupied()
+                & !game_state.obstacles)
+                .count_ones();
+        if red_neighbor_count > blue_neighbor_count {
+            Some(RED)
+        } else if blue_neighbor_count > red_neighbor_count {
+            Some(BLUE)
+        } else {
+            None
+        }
     }
 }
 
@@ -407,6 +416,8 @@ pub fn is_game_finished(game_state: &GameState) -> bool {
         {
             return true;
         }
+    } else if game_state.ply >= 7 {
+        return true;
     }
     if game_state.pieces[PieceType::BEE as usize][Color::BLUE as usize] != 0 {
         let bee_neighbours = bitboard::get_neighbours(
@@ -420,6 +431,8 @@ pub fn is_game_finished(game_state: &GameState) -> bool {
         {
             return true;
         }
+    } else if game_state.ply >= 8 {
+        return true;
     }
 
     return false;
