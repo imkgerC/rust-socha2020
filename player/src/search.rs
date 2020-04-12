@@ -1,14 +1,15 @@
 use crate::cache::{Cache, CacheEntry, EvalCache, EvalCacheEntry, HASH_SIZE};
 use crate::evaluation::evaluate;
 use crate::moveordering::{MoveOrderer, STAGES};
+use crate::quiescence::qsearch;
 use crate::timecontrol::Timecontrol;
 use game_sdk::actionlist::ActionListStack;
 use game_sdk::gamerules::{calculate_legal_moves, get_result, is_game_finished};
-use game_sdk::{Action, ActionList, ClientListener, Color, GameState, MATED_IN_MAX, MATE_IN_MAX};
+use game_sdk::{
+    Action, ActionList, ClientListener, Color, GameState, MATED_IN_MAX, MATE_IN_MAX,
+    MAX_SEARCH_DEPTH, STANDARD_SCORE,
+};
 use std::time::Instant;
-
-pub const STANDARD_SCORE: i16 = std::i16::MIN + 1;
-pub const MAX_SEARCH_DEPTH: usize = 60;
 
 pub struct Searcher {
     pub nodes_searched: u64,
@@ -85,7 +86,7 @@ impl Searcher {
                 self,
                 &mut game_state,
                 0,
-                depth,
+                depth as isize,
                 STANDARD_SCORE,
                 -STANDARD_SCORE,
             );
@@ -140,7 +141,7 @@ pub fn principal_variation_search(
     searcher: &mut Searcher,
     game_state: &mut GameState,
     current_depth: usize,
-    depth_left: usize,
+    depth_left: isize,
     mut alpha: i16,
     mut beta: i16,
 ) -> i16 {
@@ -200,7 +201,7 @@ pub fn principal_variation_search(
 
     //TODO: Quiescence search
     if depth_left <= 0 {
-        let ce = searcher.eval_cache.lookup(game_state.hash);
+        /*let ce = searcher.eval_cache.lookup(game_state.hash);
         if let Some(ce) = ce {
             return ce.score;
         }
@@ -214,7 +215,8 @@ pub fn principal_variation_search(
                 score: evaluation,
             },
         );
-        return evaluation;
+        return evaluation;*/
+        return qsearch(searcher, game_state, current_depth, depth_left, alpha, beta);
     }
 
     let pv_action = if searcher.principal_variation_table.size > current_depth
@@ -283,7 +285,7 @@ pub fn principal_variation_search(
             searcher,
             game_state,
             current_depth + 1,
-            (depth_left - 3).max(1) as usize,
+            (depth_left - 3).max(1),
             -beta,
             -beta + 1,
         );
@@ -363,12 +365,12 @@ pub fn principal_variation_search(
                 searcher.killer_moves[current_depth][0] = Some(action);
                 searcher.killer_moves[current_depth][1] = before;
                 searcher.hh_score[game_state.color_to_move as usize][from as usize][to as usize] +=
-                    depth_left;
+                    depth_left as usize;
             }
             break;
         } else {
             searcher.bf_score[game_state.color_to_move as usize][from as usize][to as usize] +=
-                depth_left;
+                depth_left as usize;
         }
         i += 1;
     }

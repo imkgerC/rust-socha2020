@@ -19,6 +19,8 @@ pub use piece_type::PieceType;
 
 pub const MATE_IN_MAX: i16 = 30000;
 pub const MATED_IN_MAX: i16 = -MATE_IN_MAX;
+pub const STANDARD_SCORE: i16 = std::i16::MIN + 1;
+pub const MAX_SEARCH_DEPTH: usize = 60;
 
 #[cfg(test)]
 mod tests {

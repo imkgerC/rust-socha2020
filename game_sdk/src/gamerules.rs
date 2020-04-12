@@ -115,6 +115,187 @@ pub fn calculate_legal_moves(game_state: &GameState, actionlist: &mut ActionList
     }
 }
 
+pub fn calculate_q_moves(game_state: &GameState, actionlist: &mut ActionList<Action>) {
+    debug_assert!(game_state.check_integrity());
+    // TODO
+    actionlist.size = 0;
+    if game_state.ply == 0 {
+        panic!("you should not evaluate qsearch at this ply");
+    }
+
+    if game_state.ply == 1 {
+        // only SetMoves next to only set enemy piece
+        // enemy is always red in first move
+        let next_to_enemy = bitboard::get_neighbours(game_state.occupied[Color::RED as usize]);
+        let mut valid_fields = next_to_enemy & !game_state.obstacles;
+        while valid_fields > 0 {
+            let to = valid_fields.trailing_zeros();
+            valid_fields ^= 1 << to;
+            for piece_type in &crate::piece_type::PIECETYPE_VARIANTS {
+                actionlist.push(Action::SetMove(*piece_type, to as u8));
+            }
+        }
+        return;
+    }
+    let mut valid_set_destinations = game_state.valid_set_destinations(game_state.color_to_move);
+
+    if game_state.must_player_place_bee() {
+        // only bee SetMoves
+        while valid_set_destinations > 0 {
+            let to = valid_set_destinations.trailing_zeros();
+            valid_set_destinations ^= 1 << to;
+            actionlist.push(Action::SetMove(PieceType::BEE, to as u8));
+        }
+        if actionlist.size == 0 {
+            actionlist.push(Action::SkipMove);
+        }
+        return;
+    }
+
+    // no regular setmoves in qsearch
+    /*let undeployed_counts = game_state.undeployed_counts[game_state.color_to_move as usize];
+    while valid_set_destinations > 0 {
+        let to = valid_set_destinations.trailing_zeros();
+        valid_set_destinations ^= 1 << to;
+        for piece_type in &crate::piece_type::PIECETYPE_VARIANTS {
+            if undeployed_counts[*piece_type as usize] > 0 {
+                actionlist.push(Action::SetMove(*piece_type, to as u8));
+            }
+        }
+    }*/
+
+    if game_state.has_player_placed_bee() {
+        // generate DragMoves
+        calculate_qdrag_moves(game_state, actionlist);
+    }
+
+    // no skipmoves in qsearch
+    /*if actionlist.size == 0 {
+        // add SkipMove to actionList
+        actionlist.push(Action::SkipMove);
+    }*/
+}
+
+fn calculate_qdrag_moves(game_state: &GameState, actionlist: &mut ActionList<Action>) {
+    let other_bee =
+        game_state.pieces[PieceType::BEE as usize][game_state.color_to_move.swap() as usize];
+    if other_bee == 0 {
+        return;
+    }
+    let other_bee_neighbours = bitboard::get_neighbours(other_bee);
+    let mut own_fields =
+        game_state.occupied[game_state.color_to_move as usize] & !other_bee_neighbours;
+    while own_fields > 0 {
+        let from = own_fields.trailing_zeros() as u8;
+        let from_bit = 1 << from;
+        own_fields ^= from_bit;
+        if from_bit
+            & (game_state.beetle_stack[0][Color::RED as usize]
+                | game_state.beetle_stack[0][Color::BLUE as usize])
+            > 0
+        {
+            // beetle move generation does not need to check swarm connected-ness if beetle is on top of sth
+            // and accessibility is easy as well
+            // only moves next to other bee or onto other bee
+            let mut valid_destinations = bitboard::get_neighbours(from_bit)
+                & !game_state.obstacles
+                & (other_bee_neighbours | other_bee);
+            while valid_destinations > 0 {
+                let to = valid_destinations.trailing_zeros() as u8;
+                valid_destinations ^= 1 << to;
+                actionlist.push(Action::DragMove(PieceType::BEETLE, from, to));
+            }
+            continue;
+        }
+
+        // check if field can be removed and swarm is still connected
+        let occupied = (game_state.occupied[Color::RED as usize]
+            | game_state.occupied[Color::BLUE as usize])
+            ^ from_bit;
+        let neighbours = bitboard::get_neighbours(from_bit) & occupied;
+        if !are_connected_in_swarm(occupied, neighbours) {
+            continue;
+        }
+        if from_bit & game_state.pieces[PieceType::BEE as usize][game_state.color_to_move as usize]
+            > 0
+        {
+            // all bee moves
+            let mut valid = get_accessible_neighbors(occupied, game_state.obstacles, from_bit);
+            while valid > 0 {
+                let to = valid.trailing_zeros() as u8;
+                valid ^= 1 << to;
+                actionlist.push(Action::DragMove(PieceType::BEE, from, to));
+            }
+            continue;
+        }
+        if from_bit
+            & game_state.pieces[PieceType::BEETLE as usize][game_state.color_to_move as usize]
+            > 0
+        {
+            // beetle move generation
+            // only next to other bee or on top of it
+            let mut valid =
+                get_beetle_accessible_neighbours(occupied, game_state.obstacles, from_bit)
+                    & (other_bee | other_bee_neighbours);
+            while valid > 0 {
+                let to = valid.trailing_zeros() as u8;
+                valid ^= 1 << to;
+                actionlist.push(Action::DragMove(PieceType::BEETLE, from, to));
+            }
+            continue;
+        }
+        if from_bit & game_state.pieces[PieceType::ANT as usize][game_state.color_to_move as usize]
+            > 0
+        {
+            // ant move generation
+            let mut valid = get_ant_destinations(occupied, game_state.obstacles, from_bit)
+                & other_bee_neighbours;
+            while valid > 0 {
+                let to = valid.trailing_zeros() as u8;
+                valid ^= 1 << to;
+                actionlist.push(Action::DragMove(PieceType::ANT, from, to));
+            }
+            continue;
+        }
+        if from_bit
+            & game_state.pieces[PieceType::SPIDER as usize][game_state.color_to_move as usize]
+            > 0
+        {
+            // spider move generation
+            let mut valid = 0;
+            append_spider_destinations(
+                &mut valid,
+                occupied,
+                game_state.obstacles,
+                from_bit,
+                from_bit,
+                3,
+            );
+            valid &= other_bee_neighbours;
+            while valid > 0 {
+                let to = valid.trailing_zeros() as u8;
+                valid ^= 1 << to;
+                actionlist.push(Action::DragMove(PieceType::SPIDER, from, to));
+            }
+            continue;
+        }
+        if from_bit
+            & game_state.pieces[PieceType::GRASSHOPPER as usize][game_state.color_to_move as usize]
+            > 0
+        {
+            // grasshopper move generation
+            let mut valid = get_grasshopper_destinations(occupied, game_state.obstacles, from_bit)
+                & other_bee_neighbours;
+            while valid > 0 {
+                let to = valid.trailing_zeros() as u8;
+                valid ^= 1 << to;
+                actionlist.push(Action::DragMove(PieceType::GRASSHOPPER, from, to));
+            }
+            continue;
+        }
+    }
+}
+
 fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList<Action>) {
     let mut own_fields = game_state.occupied[game_state.color_to_move as usize];
     while own_fields > 0 {

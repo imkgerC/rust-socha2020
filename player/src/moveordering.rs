@@ -1,9 +1,9 @@
 use crate::moveordering::MoveOrderingStage::{
-    BadPins, DeletePvTTMove, GenerateMoves, Killer, PVMove, PinInitialization, Pins, Quiet,
-    QuietInitialization, TTMove,
+    BadPins, DeletePvTTMove, GenerateMoves, GenerateQMoves, Killer, PVMove, PinInitialization,
+    Pins, QDeletePvTTMove, QMoves, Quiet, QuietInitialization, TTMove,
 };
 use crate::search::Searcher;
-use game_sdk::gamerules::calculate_legal_moves;
+use game_sdk::gamerules::{calculate_legal_moves, calculate_q_moves};
 use game_sdk::{Action, ActionList, Color, GameState, PieceType};
 
 pub const ATTACKER_VALUE: [f64; 5] = [5., 1., 4., 3., 2.];
@@ -17,17 +17,21 @@ pub const STAGES: [MoveOrderingStage; 7] = [
     QuietInitialization,
     Quiet,
 ];
+pub const QSTAGES: [MoveOrderingStage; 4] = [TTMove, GenerateQMoves, QDeletePvTTMove, QMoves];
 pub enum MoveOrderingStage {
     GenerateMoves,
     PVMove,
     TTMove,
     DeletePvTTMove,
+    QDeletePvTTMove,
     PinInitialization,
     Pins,
     Killer,
     QuietInitialization,
     Quiet,
     BadPins,
+    GenerateQMoves,
+    QMoves,
 }
 pub struct MoveOrderer {
     pub stage: usize,
@@ -54,6 +58,12 @@ impl MoveOrderer {
             .find_action(action)
             .expect("Can not remove action which is not in action list");
         self.remove_action_at(index, al);
+    }
+
+    fn try_remove_action(&mut self, action: Action, al: &mut ActionList<Action>) {
+        if let Some(index) = al.find_action(action) {
+            self.remove_action_at(index, al);
+        }
     }
 
     #[inline(always)]
@@ -114,6 +124,29 @@ impl MoveOrderer {
                 for _ in 0..searcher.als[current_depth].size {
                     self.score_list.push(None);
                 }
+                self.next(game_state, searcher, current_depth, pv_action, tt_action)
+            }
+            GenerateQMoves => {
+                self.stage += 1;
+                calculate_q_moves(&game_state, &mut searcher.als[current_depth]);
+                for _ in 0..searcher.als[current_depth].size {
+                    self.score_list.push(None);
+                }
+                self.next(game_state, searcher, current_depth, pv_action, tt_action)
+            }
+            QMoves => {
+                if let Some((res, _)) = self.highest_score(&mut searcher.als[current_depth], None) {
+                    Some(res)
+                } else {
+                    self.stage += 1;
+                    self.next(game_state, searcher, current_depth, pv_action, tt_action)
+                }
+            }
+            QDeletePvTTMove => {
+                if tt_action.is_some() {
+                    self.try_remove_action(tt_action.unwrap(), &mut searcher.als[current_depth]);
+                }
+                self.stage += 1;
                 self.next(game_state, searcher, current_depth, pv_action, tt_action)
             }
             DeletePvTTMove => {
