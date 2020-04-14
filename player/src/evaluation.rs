@@ -4,10 +4,27 @@ use game_sdk::{bitboard, get_accessible_neighbors, Color, GameState, PieceType};
 
 pub const COLOR_TO_MOVE: f64 = 12.0;
 pub fn evaluate(game_state: &GameState) -> i16 {
-    (evaluate_color(game_state, Color::RED) - evaluate_color(game_state, Color::BLUE)).round()
-        as i16
+    if game_state.ply < 55 {
+        (evaluate_color(game_state, Color::RED) - evaluate_color(game_state, Color::BLUE)).round()
+            as i16
+    } else {
+        let red_free =
+            (get_neighbours(game_state.pieces[PieceType::BEE as usize][Color::RED as usize])
+                & !game_state.occupied()
+                & !game_state.obstacles)
+                .count_ones();
+        let blue_free =
+            (get_neighbours(game_state.pieces[PieceType::BEE as usize][Color::BLUE as usize])
+                & !game_state.occupied()
+                & !game_state.obstacles)
+                .count_ones();
+        (red_free as i16 - blue_free as i16) * 500
+    }
 }
 pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
+    let unskewed_phase = game_state.ply as f64 / 60.0;
+    let phase = 1.0 - (1.0 - unskewed_phase).powf(2.0);
+
     let occupied = game_state.occupied();
     let obstacles = game_state.obstacles;
 
@@ -21,11 +38,14 @@ pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
         + 0.33
             * (bee_neighbors & game_state.pieces[PieceType::BEETLE as usize][color as usize])
                 .count_ones() as f64;
-    let our_set_fields = (get_neighbours(game_state.occupied[color as usize])
+    let our_set = get_neighbours(game_state.occupied[color as usize])
         & !obstacles
         & !occupied
-        & !get_neighbours(game_state.occupied[color.swap() as usize]))
+        & !get_neighbours(game_state.occupied[color.swap() as usize]);
+    let our_set_next_to_bee = (our_set
+        & get_neighbours(game_state.pieces[PieceType::BEE as usize][color.swap() as usize]))
     .count_ones() as f64;
+    let our_set_fields = our_set.count_ones() as f64;
     let beetle_on_bee = if bee_index <= 120
         && game_state.is_on_stack(bee_index)
         && (game_state.occupied[color.swap() as usize] & bee) > 0

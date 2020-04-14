@@ -80,7 +80,8 @@ impl Searcher {
         }
 
         let mut score = STANDARD_SCORE;
-        for depth in 1..=MAX_SEARCH_DEPTH {
+        let current_max_depth = (61 - game_state.ply) as usize;
+        for depth in 1..=current_max_depth {
             let new_score = principal_variation_search(
                 self,
                 &mut game_state,
@@ -113,7 +114,7 @@ impl Searcher {
                 self.cache.fill_status(),
                 self.principal_variation_table
             );
-            println!("{:?}", self.cutoff_stats);
+            /*println!("{:?}", self.cutoff_stats);
             let sum: u64 = self.cutoff_stats.iter().sum();
             println!(
                 "{:?}",
@@ -121,7 +122,7 @@ impl Searcher {
                     .iter()
                     .map(|s| *s as f64 / (sum as f64).max(1.))
                     .collect::<Vec<f64>>()
-            );
+            );*/
         }
         println!(
             "Finished search with move {:?} and score {}, pv: {:?}",
