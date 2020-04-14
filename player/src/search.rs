@@ -337,6 +337,7 @@ pub fn principal_variation_search(
             }
             following_score
         };
+        i += 1;
         game_state.unmake_action(action);
         if following_score > current_max_score && !searcher.stop_flag {
             current_max_score = following_score;
@@ -372,7 +373,6 @@ pub fn principal_variation_search(
             searcher.bf_score[game_state.color_to_move as usize][from as usize][to as usize] +=
                 depth_left as usize;
         }
-        i += 1;
     }
     if wouldnmp && alpha >= beta {
         searcher.cutoff_stats[0] += 1;
@@ -381,6 +381,7 @@ pub fn principal_variation_search(
         //println!("{}",game_state);
     }
     if !searcher.stop_flag && i == 0 && current_max_score == STANDARD_SCORE {
+        println!("{}", searcher.als[current_depth].size);
         panic!("No legal move found and tried in a position! This should never occur!");
     }
     //Make TT entry

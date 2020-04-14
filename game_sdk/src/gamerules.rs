@@ -216,6 +216,15 @@ fn calculate_qdrag_moves(game_state: &GameState, actionlist: &mut ActionList<Act
         if !are_connected_in_swarm(occupied, neighbours) {
             continue;
         }
+        let gen_pins = if neighbours.count_ones() == 1 {
+            if neighbours & game_state.occupied[game_state.color_to_move.swap() as usize] != 0 {
+                false
+            } else {
+                true
+            }
+        } else {
+            true
+        };
         if from_bit & game_state.pieces[PieceType::BEE as usize][game_state.color_to_move as usize]
             > 0
         {
@@ -248,12 +257,27 @@ fn calculate_qdrag_moves(game_state: &GameState, actionlist: &mut ActionList<Act
             > 0
         {
             // ant move generation
-            let mut valid = get_ant_destinations(occupied, game_state.obstacles, from_bit)
-                & other_bee_neighbours;
-            while valid > 0 {
-                let to = valid.trailing_zeros() as u8;
+            let mut valid = get_ant_destinations(occupied, game_state.obstacles, from_bit);
+            while (valid & other_bee_neighbours) > 0 {
+                let to = (valid & other_bee_neighbours).trailing_zeros() as u8;
                 valid ^= 1 << to;
                 actionlist.push(Action::DragMove(PieceType::ANT, from, to));
+            }
+            if false {
+                while valid > 0 {
+                    let to = valid.trailing_zeros() as u8;
+                    let to_bit = 1 << to;
+                    valid ^= to_bit;
+                    let to_neighbours = bitboard::get_neighbours(to_bit) & occupied;
+                    if to_neighbours.count_ones() == 1 {
+                        if to_neighbours
+                            & game_state.occupied[game_state.color_to_move.swap() as usize]
+                            != 0
+                        {
+                            actionlist.push(Action::DragMove(PieceType::ANT, from, to));
+                        }
+                    }
+                }
             }
             continue;
         }
@@ -271,11 +295,26 @@ fn calculate_qdrag_moves(game_state: &GameState, actionlist: &mut ActionList<Act
                 from_bit,
                 3,
             );
-            valid &= other_bee_neighbours;
-            while valid > 0 {
-                let to = valid.trailing_zeros() as u8;
+            while (valid & other_bee_neighbours) > 0 {
+                let to = (valid & other_bee_neighbours).trailing_zeros() as u8;
                 valid ^= 1 << to;
                 actionlist.push(Action::DragMove(PieceType::SPIDER, from, to));
+            }
+            if false {
+                while valid > 0 {
+                    let to = valid.trailing_zeros() as u8;
+                    let to_bit = 1 << to;
+                    valid ^= to_bit;
+                    let to_neighbours = bitboard::get_neighbours(to_bit) & occupied;
+                    if to_neighbours.count_ones() == 1 {
+                        if to_neighbours
+                            & game_state.occupied[game_state.color_to_move.swap() as usize]
+                            != 0
+                        {
+                            actionlist.push(Action::DragMove(PieceType::SPIDER, from, to));
+                        }
+                    }
+                }
             }
             continue;
         }
@@ -284,12 +323,27 @@ fn calculate_qdrag_moves(game_state: &GameState, actionlist: &mut ActionList<Act
             > 0
         {
             // grasshopper move generation
-            let mut valid = get_grasshopper_destinations(occupied, game_state.obstacles, from_bit)
-                & other_bee_neighbours;
-            while valid > 0 {
-                let to = valid.trailing_zeros() as u8;
+            let mut valid = get_grasshopper_destinations(occupied, game_state.obstacles, from_bit);
+            while (valid & other_bee_neighbours) > 0 {
+                let to = (valid & other_bee_neighbours).trailing_zeros() as u8;
                 valid ^= 1 << to;
                 actionlist.push(Action::DragMove(PieceType::GRASSHOPPER, from, to));
+            }
+            if false {
+                while valid > 0 {
+                    let to = valid.trailing_zeros() as u8;
+                    let to_bit = 1 << to;
+                    valid ^= to_bit;
+                    let to_neighbours = bitboard::get_neighbours(to_bit) & occupied;
+                    if to_neighbours.count_ones() == 1 {
+                        if to_neighbours
+                            & game_state.occupied[game_state.color_to_move.swap() as usize]
+                            != 0
+                        {
+                            actionlist.push(Action::DragMove(PieceType::GRASSHOPPER, from, to));
+                        }
+                    }
+                }
             }
             continue;
         }

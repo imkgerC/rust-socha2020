@@ -17,7 +17,14 @@ pub const STAGES: [MoveOrderingStage; 7] = [
     QuietInitialization,
     Quiet,
 ];
-pub const QSTAGES: [MoveOrderingStage; 4] = [TTMove, GenerateQMoves, QDeletePvTTMove, QMoves];
+pub const QSTAGES: [MoveOrderingStage; 6] = [
+    PVMove,
+    TTMove,
+    GenerateQMoves,
+    QDeletePvTTMove,
+    Killer,
+    QMoves,
+];
 pub enum MoveOrderingStage {
     GenerateMoves,
     PVMove,
@@ -132,6 +139,25 @@ impl MoveOrderer {
                 for _ in 0..searcher.als[current_depth].size {
                     self.score_list.push(None);
                 }
+                for i in 0..searcher.als[current_depth].size {
+                    if self.score_list[i].is_none() {
+                        let (from, to) = match searcher.als[current_depth][i] {
+                            Action::SkipMove => (121, 121),
+                            Action::DragMove(_, from, to) => (from, to),
+                            Action::SetMove(_, to) => (121, to),
+                        };
+                        self.score_list.overwrite(
+                            i,
+                            Some(
+                                searcher.hh_score[game_state.color_to_move as usize][from as usize]
+                                    [to as usize] as f64
+                                    / searcher.bf_score[game_state.color_to_move as usize]
+                                        [from as usize][to as usize]
+                                        as f64,
+                            ),
+                        )
+                    }
+                }
                 self.next(game_state, searcher, current_depth, pv_action, tt_action)
             }
             QMoves => {
@@ -143,6 +169,9 @@ impl MoveOrderer {
                 }
             }
             QDeletePvTTMove => {
+                if pv_action.is_some() {
+                    self.try_remove_action(pv_action.unwrap(), &mut searcher.als[current_depth]);
+                }
                 if tt_action.is_some() {
                     self.try_remove_action(tt_action.unwrap(), &mut searcher.als[current_depth]);
                 }

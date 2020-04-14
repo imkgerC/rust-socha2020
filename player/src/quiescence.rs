@@ -1,4 +1,4 @@
-use crate::cache::EvalCacheEntry;
+use crate::cache::{CacheEntry, EvalCacheEntry};
 use crate::evaluation::evaluate;
 use crate::moveordering::{MoveOrderer, QSTAGES};
 use crate::search::Searcher;
@@ -19,7 +19,8 @@ pub fn qsearch(
     } else {
         -1
     };
-    // No pv in qsearch
+    let original_alpha = alpha;
+    searcher.pv_table[current_depth].clear();
 
     if searcher.nodes_searched % 4096 == 0 {
         if searcher.tc.time_over(
@@ -63,18 +64,29 @@ pub fn qsearch(
         }
     };
 
+    // pruning
+    if alpha > standing_pat + 50 {
+        return standing_pat;
+    }
     alpha = alpha.max(standing_pat);
     if alpha >= beta {
         return alpha;
     }
 
+    let pv_action = if searcher.principal_variation_table.size > current_depth
+        && searcher.principal_variation_hashtable[current_depth] == game_state.hash
+    {
+        Some(searcher.principal_variation_table[current_depth])
+    } else {
+        None
+    };
+
     let mut tt_action: Option<Action> = None;
     {
         let ce = searcher.cache.lookup(game_state.hash);
         if let Some(ce) = ce {
-            if ce.depth > 0 // always is, as q is not added to tt yet
-                && ((game_state.ply + depth_left as u8) < 60 && ce.plies + ce.depth < 60
-                    || (game_state.ply + depth_left as u8) >= 60 && ce.plies + ce.depth >= 60)
+            if (game_state.ply + 1) < 60 && ce.plies + ce.depth < 60
+                || (game_state.ply + 1) >= 60 && ce.plies + ce.depth >= 60
             {
                 let tt_score = if ce.score >= MATE_IN_MAX {
                     ce.score - current_depth as i16
@@ -110,7 +122,8 @@ pub fn qsearch(
     let current_max_score = standing_pat;
 
     let mut move_orderer = MoveOrderer::with_stages(&QSTAGES);
-    while let Some(action) = move_orderer.next(game_state, searcher, current_depth, None, tt_action)
+    while let Some(action) =
+        move_orderer.next(game_state, searcher, current_depth, pv_action, tt_action)
     {
         game_state.make_action(action);
         let following_score = -qsearch(
@@ -121,17 +134,69 @@ pub fn qsearch(
             -beta,
             -alpha,
         );
+        game_state.unmake_action(action);
         if searcher.stop_flag {
             break;
         }
+        if following_score > current_max_score {
+            searcher.pv_table[current_depth].clear();
+            searcher.pv_table[current_depth].push(action);
+            // do not add following pv as is trash anyways
+        }
         current_max_score.max(following_score);
         alpha.max(following_score);
+        let (from, to) = match action {
+            Action::SkipMove => (121, 121),
+            Action::DragMove(_, from, to) => (from, to),
+            Action::SetMove(_, to) => (121, to),
+        };
         if alpha >= beta {
+            if Some(action) != searcher.killer_moves[current_depth][0]
+                && Some(action) != searcher.killer_moves[current_depth][1]
+            {
+                let before = searcher.killer_moves[current_depth][0];
+                searcher.killer_moves[current_depth][0] = Some(action);
+                searcher.killer_moves[current_depth][1] = before;
+                searcher.hh_score[game_state.color_to_move as usize][from as usize][to as usize] +=
+                    1 as usize;
+            }
             break;
+        } else {
+            searcher.bf_score[game_state.color_to_move as usize][from as usize][to as usize] +=
+                1 as usize;
         }
-        game_state.unmake_action(action);
     }
-    // TODO: make tt entry?
+
+    // Make TT entry
+    if !searcher.stop_flag && searcher.pv_table[current_depth].size > 0 {
+        let score = if current_max_score.abs() >= MATE_IN_MAX {
+            let mate_length = MATE_IN_MAX + 60 - current_max_score.abs();
+            assert!((current_depth as i16) < mate_length);
+            let mate_length_from_now_on = mate_length - current_depth as i16;
+            (MATE_IN_MAX + 60 - mate_length_from_now_on as i16)
+                * if current_max_score >= MATE_IN_MAX {
+                    1
+                } else {
+                    -1
+                }
+        } else {
+            current_max_score
+        };
+        searcher.cache.insert(
+            game_state.hash,
+            CacheEntry {
+                upper_hash: (game_state.hash >> 32) as u32,
+                lower_hash: (game_state.hash & 0xFFFFFFFF) as u32,
+                action: searcher.pv_table[current_depth][0],
+                score,
+                alpha: current_max_score <= original_alpha,
+                beta: alpha >= beta,
+                depth: 0u8,
+                plies: game_state.ply,
+            },
+            searcher.root_plies_played,
+        );
+    }
 
     current_max_score
 }
