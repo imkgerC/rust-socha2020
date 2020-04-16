@@ -47,7 +47,6 @@ pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
     }
 
     let mut pinned_pieces = 0.;
-    let mut destinations = 0;
     for pt in [
         PieceType::BEE,
         PieceType::BEETLE,
@@ -64,40 +63,14 @@ pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
             pieces ^= piece_bit;
             if !can_be_removed(piece_bit, occupied) {
                 pinned_pieces += 1.;
-            } else {
-                destinations |= match *pt {
-                    PieceType::BEETLE => {
-                        gamerules::get_beetle_accessible_neighbours(occupied, obstacles, piece_bit)
-                    }
-                    PieceType::BEE => get_accessible_neighbors(occupied, obstacles, piece_bit),
-                    PieceType::ANT => {
-                        gamerules::get_ant_destinations(occupied, obstacles, piece_bit)
-                    }
-                    PieceType::SPIDER => {
-                        let mut valid = 0;
-                        gamerules::append_spider_destinations(
-                            &mut valid, occupied, obstacles, piece_bit, piece_bit, 3,
-                        );
-                        valid
-                    }
-                    PieceType::GRASSHOPPER => {
-                        gamerules::get_grasshopper_destinations(occupied, obstacles, piece_bit)
-                    }
-                };
             }
         }
     }
 
-    let next_to_other_bee =
-        get_neighbours(game_state.pieces[PieceType::BEE as usize][color.swap() as usize]);
-    let our_set_next_to_bee = our_set & next_to_other_bee;
-    let other_accessible = our_set_next_to_bee | (destinations & next_to_other_bee);
-    let other_accessible_fields = other_accessible.count_ones() as f64;
-
     let mut res = 0.;
     res += 12. * free_bee_fields + 4. * bee_moves + our_set_fields - 30. * beetle_on_bee
         + 6. * ant_pinning_enemies
-        + destinations.count_ones() as f64
+        + 24. * (game_state.ply as f64 / 60.) * free_bee_fields
         - 6. * pinned_pieces;
     res += if game_state.color_to_move == color {
         COLOR_TO_MOVE
