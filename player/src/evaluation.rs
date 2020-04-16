@@ -1,30 +1,13 @@
 use game_sdk::bitboard::get_neighbours;
 use game_sdk::gamerules::are_connected_in_swarm;
-use game_sdk::{bitboard, get_accessible_neighbors, Color, GameState, PieceType};
+use game_sdk::{bitboard, gamerules, get_accessible_neighbors, Color, GameState, PieceType};
 
 pub const COLOR_TO_MOVE: f64 = 12.0;
 pub fn evaluate(game_state: &GameState) -> i16 {
-    if game_state.ply < 55 {
-        (evaluate_color(game_state, Color::RED) - evaluate_color(game_state, Color::BLUE)).round()
-            as i16
-    } else {
-        let red_free =
-            (get_neighbours(game_state.pieces[PieceType::BEE as usize][Color::RED as usize])
-                & !game_state.occupied()
-                & !game_state.obstacles)
-                .count_ones();
-        let blue_free =
-            (get_neighbours(game_state.pieces[PieceType::BEE as usize][Color::BLUE as usize])
-                & !game_state.occupied()
-                & !game_state.obstacles)
-                .count_ones();
-        (red_free as i16 - blue_free as i16) * 500
-    }
+    (evaluate_color(game_state, Color::RED) - evaluate_color(game_state, Color::BLUE)).round()
+        as i16
 }
 pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
-    let unskewed_phase = game_state.ply as f64 / 60.0;
-    let phase = 1.0 - (1.0 - unskewed_phase).powf(2.0);
-
     let occupied = game_state.occupied();
     let obstacles = game_state.obstacles;
 
@@ -42,9 +25,6 @@ pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
         & !obstacles
         & !occupied
         & !get_neighbours(game_state.occupied[color.swap() as usize]);
-    let our_set_next_to_bee = (our_set
-        & get_neighbours(game_state.pieces[PieceType::BEE as usize][color.swap() as usize]))
-    .count_ones() as f64;
     let our_set_fields = our_set.count_ones() as f64;
     let beetle_on_bee = if bee_index <= 120
         && game_state.is_on_stack(bee_index)
@@ -65,7 +45,9 @@ pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
         }
         ants ^= 1u128 << ant;
     }
+
     let mut pinned_pieces = 0.;
+    let mut destinations = 0;
     for pt in [
         PieceType::BEE,
         PieceType::BEETLE,
@@ -78,15 +60,44 @@ pub fn evaluate_color(game_state: &GameState, color: Color) -> f64 {
         let mut pieces = game_state.pieces[*pt as usize][color as usize];
         while pieces > 0 {
             let piece_index = pieces.trailing_zeros();
-            if !can_be_removed(1u128 << piece_index, occupied) {
+            let piece_bit = 1 << piece_index;
+            pieces ^= piece_bit;
+            if !can_be_removed(piece_bit, occupied) {
                 pinned_pieces += 1.;
+            } else {
+                destinations |= match *pt {
+                    PieceType::BEETLE => {
+                        gamerules::get_beetle_accessible_neighbours(occupied, obstacles, piece_bit)
+                    }
+                    PieceType::BEE => get_accessible_neighbors(occupied, obstacles, piece_bit),
+                    PieceType::ANT => {
+                        gamerules::get_ant_destinations(occupied, obstacles, piece_bit)
+                    }
+                    PieceType::SPIDER => {
+                        let mut valid = 0;
+                        gamerules::append_spider_destinations(
+                            &mut valid, occupied, obstacles, piece_bit, piece_bit, 3,
+                        );
+                        valid
+                    }
+                    PieceType::GRASSHOPPER => {
+                        gamerules::get_grasshopper_destinations(occupied, obstacles, piece_bit)
+                    }
+                };
             }
-            pieces ^= 1u128 << piece_index;
         }
     }
+
+    let next_to_other_bee =
+        get_neighbours(game_state.pieces[PieceType::BEE as usize][color.swap() as usize]);
+    let our_set_next_to_bee = our_set & next_to_other_bee;
+    let other_accessible = our_set_next_to_bee | (destinations & next_to_other_bee);
+    let other_accessible_fields = other_accessible.count_ones() as f64;
+
     let mut res = 0.;
     res += 12. * free_bee_fields + 4. * bee_moves + our_set_fields - 30. * beetle_on_bee
         + 6. * ant_pinning_enemies
+        + destinations.count_ones() as f64
         - 6. * pinned_pieces;
     res += if game_state.color_to_move == color {
         COLOR_TO_MOVE
