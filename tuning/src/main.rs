@@ -91,14 +91,14 @@ fn local_parameter_search(labelled_states: &Dataset) {
         improved = false;
         for i in 0..best_params.len() {
             let mut new_params = best_params;
-            new_params[i] = best_params[i] + (best_params[i] * 0.1).max(0.05);
+            new_params[i] = best_params[i] + (best_params[i].abs() * 0.1).max(0.05);
             let new_error = labelled_states.get_mean_evaluation_error_with_params(K, new_params);
             if new_error < best_error {
                 improved = true;
                 best_error = new_error;
                 best_params = new_params;
             } else {
-                new_params[i] = best_params[i] - (best_params[i] * 0.1).max(0.05);
+                new_params[i] = best_params[i] - (best_params[i].abs() * 0.1).max(0.05);
                 let new_error =
                     labelled_states.get_mean_evaluation_error_with_params(K, new_params);
                 if new_error < best_error {
