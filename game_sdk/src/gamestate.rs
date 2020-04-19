@@ -154,7 +154,6 @@ impl GameState {
                     if pieces & field == 0
                         && (!self.is_on_stack(i) || self.stack_color(i) != *color)
                     {
-                        println!("here");
                         return false;
                     }
                 } else {
