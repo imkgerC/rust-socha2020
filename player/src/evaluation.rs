@@ -34,19 +34,8 @@ impl EvaluationParameters {
 
 pub const COLOR_TO_MOVE: f64 = 12.0;
 
+// parameters originally chosen by hand, kept for historical purposes
 // pub const DEFAULT_ARRAY: [f64; 10] = [12.0, -6.0, 6.0, 4.0, -30.0, 12.0, 1.0, 24.0, 0.33, 0.25];
-/*pub const DEFAULT_ARRAY: [f64; 10] = [
-    7.338336897141312,
-    -22.784990014994456,
-    -9.098141752046942,
-    0.2718628254902993,
-    -67.27154376977042,
-    0.3289252083147839,
-    3.9327962306265025,
-    110.27935167257316,
-    -0.01999999999999995,
-    0.39999999999999997,
-];*/
 pub const DEFAULT_ARRAY: [f64; 10] = [
     4.465854911107787,
     -17.11870023666,
