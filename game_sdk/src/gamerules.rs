@@ -220,7 +220,7 @@ fn calculate_drag_moves(game_state: &GameState, actionlist: &mut ActionList<Acti
     }
 }
 
-fn get_grasshopper_destinations(occupied: u128, obstacles: u128, from: u128) -> u128 {
+pub fn get_grasshopper_destinations(occupied: u128, obstacles: u128, from: u128) -> u128 {
     let mut destinations = 0;
 
     // nowe
@@ -268,7 +268,7 @@ fn get_grasshopper_destinations(occupied: u128, obstacles: u128, from: u128) -> 
     return destinations & !(obstacles | bitboard::get_neighbours(from));
 }
 
-fn get_ant_destinations(occupied: u128, obstacles: u128, current_field: u128) -> u128 {
+pub fn get_ant_destinations(occupied: u128, obstacles: u128, current_field: u128) -> u128 {
     let mut candidates = get_accessible_neighbors(occupied, obstacles, current_field);
     let mut destinations = candidates;
     while candidates > 0 {
@@ -281,7 +281,7 @@ fn get_ant_destinations(occupied: u128, obstacles: u128, current_field: u128) ->
     return destinations & !current_field;
 }
 
-fn append_spider_destinations(
+pub fn append_spider_destinations(
     destinations: &mut u128,
     occupied: u128,
     obstacles: u128,
@@ -310,7 +310,7 @@ fn append_spider_destinations(
     }
 }
 
-fn get_beetle_accessible_neighbours(occupied: u128, obstacles: u128, field: u128) -> u128 {
+pub fn get_beetle_accessible_neighbours(occupied: u128, obstacles: u128, field: u128) -> u128 {
     let mut ret = 0;
     let nowe = bitboard::shift_nowe(field);
     let noea = bitboard::shift_noea(field);

@@ -1,6 +1,6 @@
 use game_sdk::Action;
 
-pub const HASH_SIZE: usize = 512; //IN MB
+pub const HASH_SIZE: usize = 64; //IN MB
 pub struct Cache {
     pub entries: usize,
     pub buckets: usize,
