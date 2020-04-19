@@ -4,11 +4,14 @@ use crate::moveordering::{MoveOrderer, STAGES};
 use crate::timecontrol::Timecontrol;
 use game_sdk::actionlist::ActionListStack;
 use game_sdk::gamerules::{calculate_legal_moves, get_result, is_game_finished};
-use game_sdk::{Action, ActionList, ClientListener, Color, GameState, MATED_IN_MAX, MATE_IN_MAX};
+use game_sdk::{
+    Action, ActionList, ClientListener, Color, GameState, PieceType, MATED_IN_MAX, MATE_IN_MAX,
+};
 use std::time::Instant;
 
 pub const STANDARD_SCORE: i16 = std::i16::MIN + 1;
 pub const MAX_SEARCH_DEPTH: usize = 60;
+pub const DEBUG_PRUNING: bool = false;
 
 pub struct Searcher {
     pub nodes_searched: u64,
@@ -54,6 +57,44 @@ impl Searcher {
         res
     }
 
+    fn format_pv(pv: &ActionList<Action>) -> String {
+        let mut ret = "".to_owned();
+
+        for i in 0..pv.size {
+            match pv[i] {
+                Action::SkipMove => ret.push_str("Skip"),
+                Action::SetMove(piece_type, to) => {
+                    let mut part = "Set(".to_owned();
+                    part.push_str(&Searcher::format_piecetype_pv(piece_type));
+                    part.push_str(&format!(", {})", to));
+                    ret.push_str(&part);
+                }
+                Action::DragMove(piece_type, from, to) => {
+                    let mut part = "Drag(".to_owned();
+                    part.push_str(&Searcher::format_piecetype_pv(piece_type));
+                    part.push_str(&format!(", {}, {})", from, to));
+                    ret.push_str(&part);
+                }
+            }
+            if i != pv.size - 1 {
+                ret.push_str(" ");
+            }
+        }
+
+        ret
+    }
+
+    fn format_piecetype_pv(piece_type: PieceType) -> String {
+        match piece_type {
+            PieceType::BEE => "Q",
+            PieceType::BEETLE => "B",
+            PieceType::ANT => "A",
+            PieceType::GRASSHOPPER => "G",
+            PieceType::SPIDER => "S",
+        }
+        .to_owned()
+    }
+
     pub fn search_move(&mut self, game_state: &GameState) -> Action {
         println!("Searching state w/ fen:{}", game_state.to_fen());
         let mut al = ActionList::default();
@@ -80,6 +121,8 @@ impl Searcher {
         }
 
         let mut score = STANDARD_SCORE;
+        let mut terminal_found = false;
+        let mut best_terminal = None;
         for depth in 1..=MAX_SEARCH_DEPTH {
             let new_score = principal_variation_search(
                 self,
@@ -100,10 +143,19 @@ impl Searcher {
                 self.principal_variation_hashtable.push(toy_state.hash);
                 toy_state.make_action(self.principal_variation_table[i]);
             }
+
             let nps =
                 self.nodes_searched as f64 / (self.start_time.unwrap().elapsed().as_secs_f64());
+            if terminal_found {
+                if let Some(best_terminal) = best_terminal {
+                    if score <= best_terminal {
+                        // do not print if we have found a terminal that is as good or better
+                        continue;
+                    }
+                }
+            }
             println!(
-                "info depth {} score {} bestmove {:?} nodes {} nps {:.2} time {} hashfull {} pv {:?}",
+                "info depth {} score {} bestmove {:?} nodes {} nps {:.2} time {} hashfull {} pv {}",
                 depth,
                 score,
                 self.principal_variation_table[0],
@@ -111,23 +163,30 @@ impl Searcher {
                 nps,
                 self.start_time.unwrap().elapsed().as_millis(),
                 self.cache.fill_status(),
-                self.principal_variation_table
+                Searcher::format_pv(&self.principal_variation_table)
             );
-            println!("{:?}", self.cutoff_stats);
-            let sum: u64 = self.cutoff_stats.iter().sum();
-            println!(
-                "{:?}",
-                self.cutoff_stats
-                    .iter()
-                    .map(|s| *s as f64 / (sum as f64).max(1.))
-                    .collect::<Vec<f64>>()
-            );
+            if DEBUG_PRUNING {
+                println!("{:?}", self.cutoff_stats);
+                let sum: u64 = self.cutoff_stats.iter().sum();
+                println!(
+                    "{:?}",
+                    self.cutoff_stats
+                        .iter()
+                        .map(|s| *s as f64 / (sum as f64).max(1.))
+                        .collect::<Vec<f64>>()
+                );
+            }
+            if score.abs() >= MATE_IN_MAX {
+                terminal_found = true;
+                best_terminal = Some(score);
+            }
         }
         println!(
-            "Finished search with move {:?} and score {}, pv: {:?}",
-            self.principal_variation_table[0], score, self.principal_variation_table
+            "Finished search with move {:?} and score {}, pv: {}",
+            self.principal_variation_table[0],
+            score,
+            Searcher::format_pv(&self.principal_variation_table)
         );
-        //let score = principal_variation_search(&mut self, game_state, )
         self.principal_variation_table[0]
     }
 }
@@ -198,7 +257,7 @@ pub fn principal_variation_search(
         }
     }
 
-    //TODO: Quiescence search
+    // Quiescence search was tested and could not be made to work
     if depth_left <= 0 {
         let ce = searcher.eval_cache.lookup(game_state.hash);
         if let Some(ce) = ce {
@@ -265,7 +324,8 @@ pub fn principal_variation_search(
             tt_action = Some(ce.action);
         }
     }
-    //TODO: Pruning
+
+    #[allow(unused_mut)]
     let mut wouldnmp = false;
     //Null move Pruning
     if !pv_node && (!game_state.must_player_place_bee() || game_state.has_player_placed_bee() )// not necessary but should be speedup
@@ -290,7 +350,12 @@ pub fn principal_variation_search(
         game_state.unmake_action(action);
         if following_score >= beta {
             return following_score;
-            //wouldnmp = true;
+            {
+                #![allow(unreachable_code)]
+                if DEBUG_PRUNING {
+                    wouldnmp = true;
+                }
+            }
         }
     }
 
@@ -376,7 +441,6 @@ pub fn principal_variation_search(
         searcher.cutoff_stats[0] += 1;
     } else if wouldnmp && alpha < beta {
         searcher.cutoff_stats[1] += 1;
-        //println!("{}",game_state);
     }
     if !searcher.stop_flag && i == 0 && current_max_score == STANDARD_SCORE {
         panic!("No legal move found and tried in a position! This should never occur!");
