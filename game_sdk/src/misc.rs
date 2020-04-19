@@ -70,10 +70,9 @@ impl Iterator for GameReader {
                 .replace(")", "")
                 .parse::<i16>()
                 .expect(desc.as_str());
-            states.push(state);
-            /*if search_res.abs() < 29900 {
+            if search_res.abs() < 29900 {
                 states.push(state);
-            }*/
+            }
         }
         if states.is_empty() {
             None
