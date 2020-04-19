@@ -10,4 +10,11 @@ impl Timecontrol {
             Timecontrol::MoveTime(movetime) => elapsed >= *movetime,
         }
     }
+
+    pub fn time_left(&self, elapsed: u64) -> i64 {
+        match self {
+            Timecontrol::Infinite => 2000,
+            Timecontrol::MoveTime(movetime) => *movetime as i64 - elapsed as i64,
+        }
+    }
 }

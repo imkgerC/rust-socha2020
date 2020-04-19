@@ -57,7 +57,7 @@ impl Searcher {
         res
     }
 
-    fn format_pv(pv: &ActionList<Action>) -> String {
+    pub fn format_pv(pv: &ActionList<Action>) -> String {
         let mut ret = "".to_owned();
 
         for i in 0..pv.size {
