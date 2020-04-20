@@ -5,6 +5,7 @@ use crate::search::Searcher;
 use crate::timecontrol::Timecontrol;
 use game_sdk::{Action, ActionList, ClientListener, GameState};
 use graph::Node;
+use rand::{rngs::SmallRng, SeedableRng};
 use std::time::Instant;
 
 pub struct MCTS {
@@ -25,17 +26,18 @@ impl MCTS {
         }
     }
 
-    pub fn search_nodes(&mut self, state: &GameState, n: usize) {
+    pub fn search_nodes(&mut self, state: &GameState, n: usize, rng: &mut SmallRng) {
         let mut al = ActionList::default();
         for _ in 0..n {
-            self.root.iteration(&mut state.clone(), &mut al);
+            self.root.iteration(&mut state.clone(), &mut al, rng);
         }
     }
 
     pub fn search(&mut self, state: &GameState) {
-        println!("Searching state w/ fen:{}", state.to_fen());
-        self.root = Node::empty();
         let start_time = Instant::now();
+        println!("Searching state w/ fen:{}", state.to_fen());
+        let mut rng = SmallRng::from_entropy();
+        self.root = Node::empty();
         let mut samples = 0;
         let mut elapsed = 0;
         self.iterations_per_ms = 1.;
@@ -46,7 +48,7 @@ impl MCTS {
                 break;
             }
             let to_search = ((time_left as f64 / 2.) * self.iterations_per_ms).max(1.) as usize;
-            self.search_nodes(state, to_search);
+            self.search_nodes(state, to_search, &mut rng);
             samples += to_search;
             pv.clear();
             let pv_depth = self.root.build_pv(&mut state.clone(), &mut pv);

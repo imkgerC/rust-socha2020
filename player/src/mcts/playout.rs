@@ -1,9 +1,8 @@
 use game_sdk::{actionlist::ActionList, gamerules, Action, GameState};
-use rand::RngCore;
+use rand::{rngs::SmallRng, RngCore};
 
-pub fn playout(initial: &GameState, al: &mut ActionList<Action>) -> f32 {
+pub fn playout(initial: &GameState, al: &mut ActionList<Action>, rng: &mut SmallRng) -> f32 {
     let mut state = initial.clone();
-    let mut rng = rand::thread_rng();
 
     while !gamerules::is_game_finished(&state) {
         gamerules::calculate_legal_moves(&state, al);

@@ -1,5 +1,6 @@
 use super::playout::playout;
 use game_sdk::{gamerules, Action, ActionList, GameState};
+use rand::rngs::SmallRng;
 
 const C: f32 = 0.5;
 const C_BASE: f32 = 7000.;
@@ -20,7 +21,12 @@ impl Node {
         }
     }
 
-    pub fn iteration(&mut self, state: &mut GameState, al: &mut ActionList<Action>) -> f32 {
+    pub fn iteration(
+        &mut self,
+        state: &mut GameState,
+        al: &mut ActionList<Action>,
+        rng: &mut SmallRng,
+    ) -> f32 {
         let delta;
         let c_adjusted = C + C_FACTOR * ((1. + self.n + C_BASE) / C_BASE).ln();
         if self.children.len() == 0 {
@@ -30,7 +36,7 @@ impl Node {
                 for i in 0..al.size {
                     self.children.push(Edge::new(al[i]));
                 }
-                delta = playout(state, al);
+                delta = playout(state, al, rng);
             } else if self.n == 0. {
                 self.q = if let Some(winner) = gamerules::get_result(&state) {
                     if winner == state.color_to_move {
@@ -58,7 +64,7 @@ impl Node {
                 best_value = value;
             }
         }
-        delta = self.children[best_edge].iteration(state, al);
+        delta = self.children[best_edge].iteration(state, al, rng);
         self.backpropagate(delta);
         return 1. - delta;
     }
@@ -116,9 +122,14 @@ impl Edge {
         }
     }
 
-    pub fn iteration(&mut self, state: &mut GameState, al: &mut ActionList<Action>) -> f32 {
+    pub fn iteration(
+        &mut self,
+        state: &mut GameState,
+        al: &mut ActionList<Action>,
+        rng: &mut SmallRng,
+    ) -> f32 {
         state.make_action(self.action);
-        self.node.iteration(state, al)
+        self.node.iteration(state, al, rng)
     }
 
     pub fn get_uct_value(&self, parent_n: f32, c: f32) -> f32 {
