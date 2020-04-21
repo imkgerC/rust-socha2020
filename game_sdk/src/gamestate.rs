@@ -13,7 +13,7 @@ use rand::Rng;
 use std::fmt::{Display, Formatter, Result};
 
 #[repr(u8)]
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Color {
     RED = 0,
     BLUE = 1,
@@ -35,7 +35,7 @@ impl Color {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct GameState {
     pub ply: u8,
     pub color_to_move: Color,

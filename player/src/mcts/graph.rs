@@ -2,14 +2,14 @@ use super::playout::playout;
 use game_sdk::{gamerules, Action, ActionList, GameState};
 use rand::rngs::SmallRng;
 
-const C: f32 = 0.5;
+const C: f32 = 0.0;
 const C_BASE: f32 = 7000.;
 const C_FACTOR: f32 = 0.5;
 
 pub struct Node {
     pub n: f32,
     pub q: f32,
-    children: Vec<Edge>,
+    pub children: Vec<Edge>,
 }
 
 impl Node {
@@ -111,7 +111,7 @@ impl Node {
 
 pub struct Edge {
     pub action: Action,
-    node: Node,
+    pub node: Node,
 }
 
 impl Edge {
