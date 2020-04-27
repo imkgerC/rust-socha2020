@@ -10,15 +10,6 @@ pub fn playout(initial: &GameState, al: &mut ActionList<Action>, rng: &mut Small
         let action = al[rand];
         state.make_action(action);
     }
-    /*let score = if let Some(winner) = gamerules::get_result(&state) {
-        if winner == initial.color_to_move {
-            0.0
-        } else {
-            1.0
-        }
-    } else {
-        0.5
-    };*/
     get_score(&state, initial.color_to_move)
 }
 

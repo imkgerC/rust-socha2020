@@ -1,6 +1,6 @@
 use game_sdk::{ClientListener, GameState};
 use player::mcts::MCTS as Player;
-use player::search::Searcher;
+// use player::search::Searcher as Player;
 use player::timecontrol::Timecontrol;
 use std::io;
 

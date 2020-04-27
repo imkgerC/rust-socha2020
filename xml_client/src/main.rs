@@ -3,8 +3,8 @@ mod xml_client;
 mod xml_utils;
 
 use argparse::{ArgumentParser, Store};
-use player::mcts::MCTS as Player;
-use player::search::Searcher;
+// use player::mcts::MCTS as Player;
+use player::search::Searcher as Player;
 use xml_client::XMLClient;
 
 fn main() {

@@ -97,7 +97,7 @@ impl MCTS {
             println!(
                 "info depth {} score {} bestmove {:?} nodes {} nps {:.2} time {} pv {}",
                 pv_depth,
-                score,
+                (score * 100.) as isize,
                 pv_move,
                 self.root.n as usize,
                 self.iterations_per_ms * 1000.,

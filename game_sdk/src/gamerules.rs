@@ -329,7 +329,7 @@ pub fn get_beetle_accessible_neighbours(occupied: u128, obstacles: u128, field: 
         ret |= west;
     }
     // check noea
-    let noea_check = nowe | east | nowe;
+    let noea_check = nowe | east | noea;
     if noea_check & occupied > 0 {
         ret |= noea;
     }
