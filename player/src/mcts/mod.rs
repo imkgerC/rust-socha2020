@@ -5,6 +5,7 @@ use crate::search::Searcher;
 use crate::timecontrol::Timecontrol;
 use game_sdk::{Action, ActionList, ClientListener, GameState};
 use graph::Node;
+use hashbrown::HashMap;
 use rand::{rngs::SmallRng, SeedableRng};
 use std::time::Instant;
 
@@ -12,6 +13,7 @@ pub struct MCTS {
     pub iterations_per_ms: f64,
     pub root: Node,
     pub tc: Timecontrol,
+    rave_table: HashMap<Action, (f32, f32)>,
     initial_state: GameState,
 }
 
@@ -24,6 +26,7 @@ impl MCTS {
             iterations_per_ms: 0.5,
             root: Node::empty(),
             tc,
+            rave_table: HashMap::new(),
             initial_state: GameState::new(),
         }
     }
@@ -31,7 +34,8 @@ impl MCTS {
     pub fn search_nodes(&mut self, state: &GameState, n: usize, rng: &mut SmallRng) {
         let mut al = ActionList::default();
         for _ in 0..n {
-            self.root.iteration(&mut state.clone(), &mut al, rng);
+            self.root
+                .iteration(&mut state.clone(), &mut self.rave_table, &mut al, rng);
         }
     }
 

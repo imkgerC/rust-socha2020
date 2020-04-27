@@ -1,5 +1,5 @@
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Eq, Hash)]
 pub enum PieceType {
     BEE = 0,
     ANT = 1,

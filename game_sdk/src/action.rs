@@ -1,7 +1,7 @@
 use super::gamestate::Color;
 use super::piece_type::PieceType;
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Hash, Eq)]
 pub enum Action {
     SkipMove,
     SetMove(PieceType, u8),

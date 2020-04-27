@@ -1,16 +1,37 @@
 use game_sdk::{actionlist::ActionList, gamerules, Action, Color, GameState, PieceType};
+use hashbrown::HashMap;
 use rand::{rngs::SmallRng, RngCore};
 
-pub fn playout(initial: &GameState, al: &mut ActionList<Action>, rng: &mut SmallRng) -> f32 {
+pub fn playout(
+    initial: &GameState,
+    color: &Color,
+    rave_table: &mut HashMap<Action, (f32, f32)>,
+    al: &mut ActionList<Action>,
+    rng: &mut SmallRng,
+) -> f32 {
+    let initial_color = initial.color_to_move;
     let mut state = initial.clone();
+    let rand = rng.next_u64() as usize % al.size;
+    let action = al[rand];
+    state.make_action(action);
 
-    while !gamerules::is_game_finished(&state) {
+    let val = if !gamerules::is_game_finished(&state) {
         gamerules::calculate_legal_moves(&state, al);
-        let rand = rng.next_u64() as usize % al.size;
-        let action = al[rand];
-        state.make_action(action);
-    }
-    get_score(&state, initial.color_to_move)
+        playout(&state, color, rave_table, al, rng)
+    } else {
+        get_score(&state, *color)
+    };
+
+    let mut rave = rave_table.remove(&action).unwrap_or((0., 0.));
+    rave.0 += if initial_color != *color {
+        val
+    } else {
+        1. - val
+    };
+    rave.1 += 1.;
+    rave_table.insert(action, rave);
+
+    val
 }
 
 // if we win 0 - rate at loss 1 - rate draw = 0.5

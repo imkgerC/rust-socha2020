@@ -1,4 +1,5 @@
 extern crate game_sdk;
+extern crate hashbrown;
 extern crate rand;
 pub mod cache;
 pub mod evaluation;
