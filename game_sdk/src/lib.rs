@@ -19,6 +19,7 @@ pub use piece_type::PieceType;
 
 pub const MATE_IN_MAX: i16 = 30000;
 pub const MATED_IN_MAX: i16 = -MATE_IN_MAX;
+pub use piece_type::PIECETYPE_VARIANTS;
 
 #[cfg(test)]
 mod tests {

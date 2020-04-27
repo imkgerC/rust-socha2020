@@ -3,7 +3,8 @@ mod xml_client;
 mod xml_utils;
 
 use argparse::{ArgumentParser, Store};
-use player::search::Searcher;
+// use player::mcts::MCTS as Player;
+use player::search::Searcher as Player;
 use xml_client::XMLClient;
 
 fn main() {
@@ -29,7 +30,7 @@ fn main() {
     );
     let mut client = XMLClient::new();
     // Insert custom client listener here:
-    client.add_listener(Box::new(Searcher::new()));
+    client.add_listener(Box::new(Player::new()));
 
     client.run(&(host + ":" + port.as_str()), &reservation);
 }
