@@ -1,3 +1,4 @@
+use super::rave_table::RaveTable;
 use game_sdk::{actionlist::ActionList, gamerules, Action, Color, GameState, PieceType};
 use hashbrown::HashMap;
 use rand::{rngs::SmallRng, RngCore};
@@ -5,7 +6,7 @@ use rand::{rngs::SmallRng, RngCore};
 pub fn playout(
     initial: &GameState,
     color: &Color,
-    rave_table: &mut HashMap<Action, (f32, f32)>,
+    rave_table: &mut RaveTable,
     al: &mut ActionList<Action>,
     rng: &mut SmallRng,
 ) -> f32 {
@@ -22,14 +23,15 @@ pub fn playout(
         get_score(&state, *color)
     };
 
-    let mut rave = rave_table.remove(&action).unwrap_or((0., 0.));
-    rave.0 += if initial_color != *color {
-        val
-    } else {
-        1. - val
-    };
-    rave.1 += 1.;
-    rave_table.insert(action, rave);
+    rave_table.add_value(
+        action,
+        initial_color,
+        if initial_color != *color {
+            val
+        } else {
+            1. - val
+        },
+    );
 
     val
 }

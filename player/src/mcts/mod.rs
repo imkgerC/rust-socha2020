@@ -1,5 +1,6 @@
 mod graph;
 mod playout;
+mod rave_table;
 
 use crate::search::Searcher;
 use crate::timecontrol::Timecontrol;
@@ -7,13 +8,14 @@ use game_sdk::{Action, ActionList, ClientListener, GameState};
 use graph::Node;
 use hashbrown::HashMap;
 use rand::{rngs::SmallRng, SeedableRng};
+use rave_table::RaveTable;
 use std::time::Instant;
 
 pub struct MCTS {
     pub iterations_per_ms: f64,
     pub root: Node,
     pub tc: Timecontrol,
-    rave_table: HashMap<Action, (f32, f32)>,
+    rave_table: RaveTable,
     initial_state: GameState,
 }
 
@@ -26,7 +28,7 @@ impl MCTS {
             iterations_per_ms: 0.5,
             root: Node::empty(),
             tc,
-            rave_table: HashMap::new(),
+            rave_table: RaveTable::new(),
             initial_state: GameState::new(),
         }
     }
@@ -35,7 +37,7 @@ impl MCTS {
         let mut al = ActionList::default();
         for _ in 0..n {
             self.root
-                .iteration(&mut state.clone(), &mut self.rave_table, &mut al, rng);
+                .iteration(&mut state.clone(), &mut self.rave_table, &mut al, rng, true);
         }
     }
 
@@ -97,19 +99,20 @@ impl MCTS {
             let pv_depth = self.root.build_pv(&mut state.clone(), &mut pv);
             elapsed = start_time.elapsed().as_millis() as u64;
             self.iterations_per_ms = samples as f64 / elapsed as f64;
-            let (score, pv_move) = self.root.best_action();
+            let (score, pv_nodes, pv_move) = self.root.best_action();
             println!(
-                "info depth {} score {} bestmove {:?} nodes {} nps {:.2} time {} pv {}",
+                "info depth {} score {} bestmove {:?} nodes {} nps {:.2} pvnodes {} time {} pv {}",
                 pv_depth,
                 (score * 100.) as isize,
                 pv_move,
                 self.root.n as usize,
                 self.iterations_per_ms * 1000.,
+                pv_nodes,
                 elapsed,
                 Searcher::format_pv(&pv)
             );
         }
-        let (score, pv_move) = self.root.best_action();
+        let (score, _, pv_move) = self.root.best_action();
         println!(
             "Finished search with move {:?} and score {}, pv: {}",
             pv_move,
@@ -119,7 +122,7 @@ impl MCTS {
     }
 
     pub fn best_action(&self) -> Action {
-        self.root.best_action().1
+        self.root.best_action().2
     }
 }
 
